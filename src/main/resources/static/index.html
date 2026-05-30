@@ -3,284 +3,55 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Blog Platform</title>
+  <title>Blog Platform Backend</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: Arial, sans-serif; background: #f5f5f5; color: #333; }
-
-    nav {
-        background: #2c3e50;
-        padding: 15px 30px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: #213736;
+      color: #f4efe6;
+      font-family: Georgia, serif;
     }
-    nav h1 { color: white; font-size: 22px; }
-    nav div { display: flex; gap: 10px; }
-
-    button {
-        padding: 8px 16px;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 14px;
-    }
-    .btn-primary { background: #3498db; color: white; }
-    .btn-success { background: #2ecc71; color: white; }
-    .btn-danger { background: #e74c3c; color: white; }
-    .btn-like { background: #f39c12; color: white; }
-    button:hover { opacity: 0.85; }
-
-    .container { max-width: 900px; margin: 30px auto; padding: 0 20px; }
 
     .card {
-        background: white;
-        border-radius: 8px;
-        padding: 20px;
-        margin-bottom: 20px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      max-width: 720px;
+      padding: 32px;
+      border-radius: 24px;
+      background: rgba(244, 239, 230, 0.08);
+      border: 1px solid rgba(244, 239, 230, 0.16);
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.2);
     }
 
-    .card h2 { margin-bottom: 15px; color: #2c3e50; }
-
-    input, textarea {
-        width: 100%;
-        padding: 10px;
-        margin: 8px 0;
-        border: 1px solid #ddd;
-        border-radius: 5px;
-        font-size: 14px;
+    h1 {
+      margin-top: 0;
+      font-size: 42px;
     }
 
-    textarea { height: 80px; resize: vertical; }
-    .post-card {
-            background: white;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 15px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            border-left: 4px solid #3498db;
-        }
-        .post-card h3 { color: #2c3e50; margin-bottom: 8px; }
-        .post-card p { color: #666; margin-bottom: 10px; line-height: 1.6; }
-        .post-meta { font-size: 12px; color: #999; margin-bottom: 10px; }
-        .post-actions { display: flex; gap: 10px; margin-top: 10px; }
+    p {
+      line-height: 1.7;
+      color: rgba(244, 239, 230, 0.82);
+    }
 
-        .message {
-            padding: 10px;
-            border-radius: 5px;
-            margin: 10px 0;
-            display: none;
-        }
-        .message.success { background: #d4edda; color: #155724; display: block; }
-        .message.error { background: #f8d7da; color: #721c24; display: block; }
-
-        #auth-section { display: block; }
-        #main-section { display: none; }
-
-        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
-        .tab {
-            padding: 10px 20px;
-            background: #ddd;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .tab.active { background: #3498db; color: white; }
-
-        #logged-user { color: #2ecc71; font-weight: bold; }
+    code {
+      color: #dccbb8;
+      font-family: Consolas, monospace;
+    }
   </style>
 </head>
 <body>
-
-<nav>
-  <h1>📝 Blog Platform</h1>
-  <div>
-    <span id="logged-user"></span>
-    <button class="btn-danger" id="logout-btn" onclick="logout()" style="display:none">Logout</button>
+  <div class="card">
+    <h1>Backend is running</h1>
+    <p>
+      The new React test frontend now lives in <code>frontend/</code> and runs separately with Vite
+      while Spring Boot continues running from IntelliJ.
+    </p>
+    <p>
+      Start it with <code>npm.cmd install</code> and <code>npm.cmd run dev</code> inside the
+      <code>frontend</code> folder.
+    </p>
   </div>
-</nav>
-
-<div class="container">
-
-  <!-- Auth Section -->
-  <div id="auth-section">
-    <div class="tabs">
-      <div class="tab active" onclick="showTab('login')">Login</div>
-      <div class="tab" onclick="showTab('register')">Register</div>
-    </div>
-
-    <!-- Login -->
-    <div id="login-tab" class="card">
-      <h2>Login</h2>
-      <input type="text" id="login-username" placeholder="Username" />
-      <input type="password" id="login-password" placeholder="Password" />
-      <button class="btn-primary" onclick="login()">Login</button>
-      <div id="login-msg" class="message"></div>
-    </div>
-
-    <!-- Register -->
-    <div id="register-tab" class="card" style="display:none">
-      <h2>Register</h2>
-      <input type="text" id="reg-username" placeholder="Username" />
-      <input type="email" id="reg-email" placeholder="Email" />
-      <input type="password" id="reg-password" placeholder="Password" />
-      <button class="btn-success" onclick="register()">Register</button>
-      <div id="register-msg" class="message"></div>
-    </div>
-  </div>
-
-  <!-- Main Section -->
-  <div id="main-section">
-
-    <!-- Create Post -->
-    <div class="card">
-      <h2>Create New Post</h2>
-      <input type="text" id="post-title" placeholder="Post Title" />
-      <textarea id="post-content" placeholder="Write your post here..."></textarea>
-      <button class="btn-success" onclick="createPost()">Publish Post</button>
-      <div id="post-msg" class="message"></div>
-    </div>
-
-    <!-- All Posts -->
-    <div class="card">
-      <h2>All Posts</h2>
-      <button class="btn-primary" onclick="loadPosts()">Refresh Posts</button>
-      <div id="posts-container" style="margin-top: 15px;"></div>
-    </div>
-  </div>
-
-</div>
-
-<script>
-  let token = '';
-
-  function showTab(tab) {
-      document.getElementById('login-tab').style.display = tab === 'login' ? 'block' : 'none';
-      document.getElementById('register-tab').style.display = tab === 'register' ? 'block' : 'none';
-      document.querySelectorAll('.tab').forEach((t, i) => {
-          t.classList.toggle('active', (tab === 'login' && i === 0) || (tab === 'register' && i === 1));
-      });
-  }
-
-  function showMessage(id, message, type) {
-      const el = document.getElementById(id);
-      el.textContent = message;
-      el.className = 'message ' + type;
-  }
-
-  async function register() {
-      const username = document.getElementById('reg-username').value;
-      const email = document.getElementById('reg-email').value;
-      const password = document.getElementById('reg-password').value;
-
-      const res = await fetch('/api/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, email, password })
-      });
-
-      const text = await res.text();
-      if (res.ok) {
-          showMessage('register-msg', text + ' — Please login!', 'success');
-      } else {
-          showMessage('register-msg', 'Registration failed!', 'error');
-      }
-  }
-
-  async function login() {
-      const username = document.getElementById('login-username').value;
-      const password = document.getElementById('login-password').value;
-
-      const res = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password })
-      });
-
-      if (res.ok) {
-          const data = await res.json();
-          token = data.token;
-          document.getElementById('auth-section').style.display = 'none';
-          document.getElementById('main-section').style.display = 'block';
-          document.getElementById('logged-user').textContent = '👤 ' + username;
-          document.getElementById('logout-btn').style.display = 'block';
-          loadPosts();
-      } else {
-          showMessage('login-msg', 'Invalid username or password!', 'error');
-      }
-  }
-
-  function logout() {
-      token = '';
-      document.getElementById('auth-section').style.display = 'block';
-      document.getElementById('main-section').style.display = 'none';
-      document.getElementById('logged-user').textContent = '';
-      document.getElementById('logout-btn').style.display = 'none';
-  }
-
-  async function createPost() {
-      const title = document.getElementById('post-title').value;
-      const content = document.getElementById('post-content').value;
-
-      const res = await fetch(`/api/posts?title=${encodeURIComponent(title)}&content=${encodeURIComponent(content)}`, {
-          method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + token }
-      });
-
-      if (res.ok) {
-          showMessage('post-msg', 'Post published successfully!', 'success');
-          document.getElementById('post-title').value = '';
-          document.getElementById('post-content').value = '';
-          loadPosts();
-      } else {
-          showMessage('post-msg', 'Failed to create post!', 'error');
-      }
-  }
-
-  async function loadPosts() {
-      const res = await fetch('/api/posts');
-      const posts = await res.json();
-
-      const container = document.getElementById('posts-container');
-      container.innerHTML = '';
-
-      if (posts.length === 0) {
-          container.innerHTML = '<p>No posts yet. Be the first to post!</p>';
-          return;
-      }
-
-      posts.reverse().forEach(post => {
-          const div = document.createElement('div');
-          div.className = 'post-card';
-          div.innerHTML = `
-              <h3>${post.title}</h3>
-              <div class="post-meta">By ${post.author.username} • ${new Date(post.createdAt).toLocaleDateString()}</div>
-              <p>${post.content}</p>
-              <div class="post-actions">
-                  <button class="btn-like" onclick="likePost(${post.id})">❤️ ${post.likes} Likes</button>
-                  <button class="btn-danger" onclick="deletePost(${post.id})">🗑️ Delete</button>
-              </div>
-          `;
-          container.appendChild(div);
-      });
-  }
-
-  async function likePost(id) {
-      await fetch(`/api/posts/${id}/like`, {
-          method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + token }
-      });
-      loadPosts();
-  }
-
-  async function deletePost(id) {
-      await fetch(`/api/posts/${id}`, {
-          method: 'DELETE',
-          headers: { 'Authorization': 'Bearer ' + token }
-      });
-      loadPosts();
-  }
-</script>
-
 </body>
 </html>

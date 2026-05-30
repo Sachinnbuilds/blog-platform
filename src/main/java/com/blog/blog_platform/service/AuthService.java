@@ -1,13 +1,17 @@
 package com.blog.blog_platform.service;
 
-import com.blog.blog_platform.dto.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import com.blog.blog_platform.dto.AuthRequest;
+import com.blog.blog_platform.dto.AuthResponse;
+import com.blog.blog_platform.dto.RegisterRequest;
 import com.blog.blog_platform.entity.User;
 import com.blog.blog_platform.repository.UserRepository;
 import com.blog.blog_platform.security.JwtUtil;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.authentication.*;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
 
 @Service
 public class AuthService {
@@ -48,7 +52,9 @@ public class AuthService {
                         request.getPassword()
                 )
         );
-        String token = jwtUtil.generateToken(request.getUsername());
-        return new AuthResponse(token);
+        User user = userRepository.findByUsername(request.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        String token = jwtUtil.generateToken(request.getUsername(), user.getTokenVersion());
+        return new AuthResponse(token, user.isAdmin());
     }
 }

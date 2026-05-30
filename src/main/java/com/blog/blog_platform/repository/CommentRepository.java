@@ -1,9 +1,16 @@
 package com.blog.blog_platform.repository;
 
-import com.blog.blog_platform.entity.Comment;
+import java.util.Collection;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-import java.util.List;
+
+import com.blog.blog_platform.entity.Comment;
 
 public interface CommentRepository extends JpaRepository<Comment, Long> {
-    List<Comment> findByPostId(Long postId);
+    Page<Comment> findByPostIdOrderByCreatedAtDesc(Long postId, Pageable pageable);
+    Long countByPostId(Long postId);
+    void deleteByUserId(Long userId);
+    void deleteByPostIdIn(Collection<Long> postIds);
 }
