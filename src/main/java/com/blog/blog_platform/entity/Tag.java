@@ -6,9 +6,13 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
 @Table(name = "tags")
+@Getter
+@Setter
 public class Tag {
 
     @Id
@@ -37,22 +41,4 @@ public class Tag {
             this.createdAt = LocalDateTime.now();
         }
     }
-
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-
-    public String getSlug() { return slug; }
-    public void setSlug(String slug) { this.slug = slug; }
-
-    public int getPostCount() { return postCount; }
-    public void setPostCount(int postCount) { this.postCount = postCount; }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-
-    public Set<Post> getPosts() { return posts; }
-    public void setPosts(Set<Post> posts) { this.posts = posts; }
 }

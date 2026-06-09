@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import CommentThread from "../components/CommentThread";
 import Loader from "../components/Loader";
@@ -49,10 +49,10 @@ export default function PostDetailPage() {
     }
   }
 
-  async function loadComments(postId) {
+  async function loadComments(postId, pageOverride = commentPage) {
     setCommentsLoading(true);
     try {
-      const data = await api.getComments(postId, commentPage);
+      const data = await api.getComments(postId, pageOverride);
       setComments(data.content || []);
       setCommentMeta({
         totalElements: data.totalElements ?? 0,
@@ -95,7 +95,7 @@ export default function PostDetailPage() {
       await api.addComment(post.id, commentForm);
       setCommentForm("");
       setCommentPage((current) => ({ ...current, page: 0 }));
-      await loadComments(post.id);
+      await loadComments(post.id, { ...commentPage, page: 0 });
       setFeedback("Comment added.");
     } catch (err) {
       setFeedback(extractApiError(err, "Failed to add comment."));
@@ -135,144 +135,126 @@ export default function PostDetailPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <article className="panel route-detail-card">
-        <Loader label="Loading post..." />
-      </article>
-    );
-  }
+  if (loading) return <div className="page-wrapper-narrow"><Loader label="Loading story…" /></div>;
 
-  if (error) {
-    return (
-      <article className="panel route-detail-card">
-        <p className="error-text">{error}</p>
-      </article>
-    );
-  }
+  if (error) return (
+    <div className="page-wrapper-narrow" style={{ paddingTop: "2rem" }}>
+      <p style={{ color: "var(--red)" }}>{error}</p>
+    </div>
+  );
 
   return (
-    <div className="content-grid route-grid route-grid-wide">
-      <article className="panel route-detail-card">
-        <div className="panel-header">
-          <h3>{post?.title}</h3>
-          <p>
-            {post?.authorUsername ? (
-              <Link to={`/u/${post.authorUsername}`}>
-                {post.authorDisplayName || post.authorUsername}
-              </Link>
-            ) : (
-              "Unknown author"
-            )} | {primaryTag} |{" "}
-            <span title={formatAbsoluteDate(post?.createdAt)}>{formatTimeAgo(post?.createdAt)}</span>
-            {post?.readTime ? ` | ${post.readTime}` : ""}
-          </p>
-        </div>
-
-        {post?.tags?.length ? (
-          <div className="tag-row">
-            {post.tags.map((tag) => (
-              <Link className="mini-tag" key={tag.id || tag.slug} to={`/feed?tag=${encodeURIComponent(tag.slug)}`}>
-                {tag.name}
-              </Link>
-            ))}
+    <div className="page-wrapper">
+      <div className="post-detail-layout">
+        {/* Article */}
+        <article>
+          <div className="post-detail-header">
+            {post?.tags?.length > 0 && (
+              <div className="tag-row" style={{ marginBottom: "1rem" }}>
+                {post.tags.map((tag) => (
+                  <Link key={tag.id || tag.slug} to={`/tag/${encodeURIComponent(tag.slug)}`} className="tag tag-link">{tag.name}</Link>
+                ))}
+              </div>
+            )}
+            <h1 className="post-detail-title">{post?.title}</h1>
+            {post?.summary && <p className="post-detail-summary">{post.summary}</p>}
+            <div className="post-detail-byline">
+              <div className="avatar avatar-sm" aria-hidden="true">{(post?.authorDisplayName || post?.authorUsername || "?")[0]?.toUpperCase()}</div>
+              {post?.authorUsername ? (
+                <Link to={`/u/${post.authorUsername}`} className="post-detail-byline-author">
+                  {post.authorDisplayName || post.authorUsername}
+                </Link>
+              ) : <span className="post-detail-byline-author">Unknown author</span>}
+              <span className="post-detail-byline-meta">
+                {post?.readTime && <>{post.readTime} · </>}
+                <span title={post?.createdAt}>{formatTimeAgo(post?.createdAt)}</span>
+              </span>
+            </div>
           </div>
-        ) : null}
 
-        {post?.thumbnail ? (
-          <div className="detail-hero-image">
-            <img src={post.thumbnail} alt={post.title} />
-          </div>
-        ) : null}
+          {post?.thumbnail && (
+            <div className="post-hero-image">
+              <img src={post.thumbnail} alt={post.title} />
+            </div>
+          )}
 
-        <p className="detail-body">{post?.content}</p>
+          <div className="post-body">{post?.content}</div>
 
-        <div className="button-row detail-actions">
-          <button className="action-button primary" onClick={handleLike} disabled={likeLoading}>
-            {likeLoading ? "Working..." : `Like (${post?.likes || 0})`}
-          </button>
-          <Link className="action-button ghost detail-back-link" to="/feed">
-            Back to feed
-          </Link>
-        </div>
-      </article>
-
-      <article className="panel">
-        <div className="panel-header">
-          <h3>Comments</h3>
-          <p>
-            {commentMeta.totalElements} comments | Page {commentMeta.number + 1} of{" "}
-            {Math.max(commentMeta.totalPages, 1)}
-          </p>
-        </div>
-
-        <form className="form-stack" onSubmit={handleAddComment}>
-          <label className="field">
-            <span className="field-label">Join the conversation</span>
-            <textarea
-              rows={4}
-              maxLength={500}
-              value={commentForm}
-              onChange={(event) => setCommentForm(event.target.value)}
-              placeholder={
-                isAuthenticated
-                  ? "Write your comment here..."
-                  : "Log in to write a comment..."
-              }
-            />
-          </label>
-          <div className="button-row">
-            <span className="helper-text">{commentForm.length}/500 characters</span>
-            <button
-              className="action-button primary"
-              type="submit"
-              disabled={actionLoading.addComment}
-            >
-              {actionLoading.addComment ? "Posting..." : "Post comment"}
+          <div className="post-actions-bar">
+            <button className={`like-btn${post?.likedByCurrentUser ? " liked" : ""}`} onClick={handleLike} disabled={likeLoading}>
+              ♥ {post?.likes || 0}
             </button>
+            {user?.username === post?.authorUsername && (
+              <Link to={`/edit/${post?.slug}`} className="btn btn-ghost btn-sm">Edit story</Link>
+            )}
+            <Link to="/feed" className="btn btn-ghost btn-sm" style={{ marginLeft: "auto" }}>← Back to feed</Link>
           </div>
-        </form>
 
-        {feedback ? <p className="helper-text">{feedback}</p> : null}
+          {/* Comments */}
+          <div className="comments-section">
+            <h2 className="comments-heading">Comments ({commentMeta.totalElements})</h2>
 
-        {commentsLoading ? (
-          <Loader label="Loading comments..." />
-        ) : (
-          <CommentThread
-            comments={comments}
-            currentUser={user}
-            editState={editState}
-            onEditStateChange={setEditState}
-            onEdit={handleEditComment}
-            onDelete={handleDeleteComment}
-            loadingKeys={actionLoading}
-          />
-        )}
+            <form className="comment-form" onSubmit={handleAddComment}>
+              <div className="form-field">
+                <label className="form-label">Leave a comment</label>
+                <textarea className="form-textarea" rows={3} maxLength={500}
+                  value={commentForm}
+                  onChange={(e) => setCommentForm(e.target.value)}
+                  placeholder={isAuthenticated ? "Share your thoughts…" : "Sign in to comment"}
+                />
+                <p className="form-hint">{commentForm.length}/500</p>
+              </div>
+              <button className="btn btn-primary btn-sm" type="submit" disabled={actionLoading.addComment}>
+                {actionLoading.addComment ? "Posting…" : "Post comment"}
+              </button>
+            </form>
 
-        <div className="button-row">
-          <button
-            className="action-button ghost"
-            onClick={() =>
-              setCommentPage((current) => ({ ...current, page: Math.max(current.page - 1, 0) }))
-            }
-            disabled={commentPage.page === 0 || commentsLoading}
-          >
-            Previous comments
-          </button>
-          <button
-            className="action-button primary"
-            onClick={() =>
-              setCommentPage((current) => ({ ...current, page: current.page + 1 }))
-            }
-            disabled={
-              commentsLoading || commentMeta.totalPages === 0 || commentPage.page >= commentMeta.totalPages - 1
-            }
-          >
-            Next comments
-          </button>
-        </div>
-      </article>
+            {commentsLoading ? <Loader label="Loading comments…" /> : (
+              <CommentThread comments={comments} currentUser={user} editState={editState}
+                onEditStateChange={setEditState} onEdit={handleEditComment}
+                onDelete={handleDeleteComment} loadingKeys={actionLoading} />
+            )}
+
+            {commentMeta.totalPages > 1 && (
+              <div className="pagination" style={{ paddingTop: "1.5rem" }}>
+                <button className="btn btn-ghost btn-sm" disabled={commentPage.page === 0}
+                  onClick={() => setCommentPage((p) => ({ ...p, page: p.page - 1 }))}>← Previous</button>
+                <span className="pagination-info">Page {commentMeta.number + 1} of {commentMeta.totalPages}</span>
+                <button className="btn btn-ghost btn-sm" disabled={commentPage.page >= commentMeta.totalPages - 1}
+                  onClick={() => setCommentPage((p) => ({ ...p, page: p.page + 1 }))}>Next →</button>
+              </div>
+            )}
+          </div>
+        </article>
+
+        {/* Sidebar */}
+        <aside>
+          <div className="post-detail-sidebar-sticky">
+            {post?.authorUsername && (
+              <div className="sidebar-section">
+                <div className="sidebar-heading">About the author</div>
+                <Link to={`/u/${post.authorUsername}`} style={{ display: "flex", alignItems: "center", gap: "0.75rem", textDecoration: "none", marginBottom: "0.75rem" }}>
+                  <div className="avatar avatar-md">{(post.authorDisplayName || post.authorUsername)[0]?.toUpperCase()}</div>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{post.authorDisplayName || post.authorUsername}</div>
+                    <div style={{ fontSize: "0.8rem", color: "var(--ink-muted)" }}>@{post.authorUsername}</div>
+                  </div>
+                </Link>
+              </div>
+            )}
+            {post?.tags?.length > 0 && (
+              <div className="sidebar-section">
+                <div className="sidebar-heading">Filed under</div>
+                <div className="tag-row">
+                  {post.tags.map((tag) => (
+                    <Link key={tag.id || tag.slug} to={`/tag/${encodeURIComponent(tag.slug)}`} className="tag tag-link">{tag.name}</Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }
-

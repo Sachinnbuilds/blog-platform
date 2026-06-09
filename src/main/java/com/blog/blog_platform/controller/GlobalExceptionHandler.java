@@ -1,5 +1,8 @@
 package com.blog.blog_platform.controller;
 
+import com.blog.blog_platform.exception.BadRequestException;
+import com.blog.blog_platform.exception.ForbiddenException;
+import com.blog.blog_platform.exception.NotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -16,72 +19,63 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<Map<String, String>> handleRuntimeException(RuntimeException ex) {
-        Map<String, String> error = new HashMap<>();
-        error.put("error", ex.getMessage());
-        return ResponseEntity.status(resolveStatus(ex.getMessage())).body(error);
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleNotFoundException(NotFoundException ex) {
+        return error(HttpStatus.NOT_FOUND, ex.getMessage());
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<Map<String, String>> handleForbiddenException(ForbiddenException ex) {
+        return error(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<Map<String, String>> handleBadRequestException(BadRequestException ex) {
+        return error(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, String>> handleValidationException(
             MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();
-        ex.getBindingResult().getAllErrors().forEach(error -> {
-            String field = ((FieldError) error).getField();
-            String message = error.getDefaultMessage();
-            errors.put(field, message);
+        ex.getBindingResult().getAllErrors().forEach(e -> {
+            String field = ((FieldError) e).getField();
+            errors.put(field, e.getDefaultMessage());
         });
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<Map<String, String>> handleConstraintViolationException(
-            ConstraintViolationException ex) {
-        Map<String, String> error = new HashMap<>();
-        error.put("error", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    public ResponseEntity<Map<String, String>> handleConstraintViolation(ConstraintViolationException ex) {
+        return error(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<Map<String, String>> handleMethodArgumentTypeMismatchException(
-            MethodArgumentTypeMismatchException ex) {
-        Map<String, String> error = new HashMap<>();
-        error.put("error", "Invalid value provided for " + ex.getName());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    public ResponseEntity<Map<String, String>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        return error(HttpStatus.BAD_REQUEST, "Invalid value for: " + ex.getName());
     }
 
-    @ExceptionHandler({ MissingServletRequestPartException.class, MaxUploadSizeExceededException.class })
+    @ExceptionHandler({MissingServletRequestPartException.class, MaxUploadSizeExceededException.class})
     public ResponseEntity<Map<String, String>> handleUploadException(Exception ex) {
-        Map<String, String> error = new HashMap<>();
-        error.put("error", ex instanceof MaxUploadSizeExceededException
+        String msg = ex instanceof MaxUploadSizeExceededException
                 ? "Uploaded file is too large"
-                : "Image file is required");
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+                : "Image file is required";
+        return error(HttpStatus.BAD_REQUEST, msg);
+    }
+
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<Map<String, String>> handleRuntimeException(RuntimeException ex) {
+        return error(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleGenericException(Exception ex) {
-        Map<String, String> error = new HashMap<>();
-        error.put("error", "Something went wrong. Please try again.");
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        return error(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong. Please try again.");
     }
 
-    private HttpStatus resolveStatus(String message) {
-        if (message == null) {
-            return HttpStatus.BAD_REQUEST;
-        }
-
-        String normalized = message.toLowerCase();
-        if (normalized.contains("unauthorized")) {
-            return HttpStatus.FORBIDDEN;
-        }
-        if (normalized.contains("not found")) {
-            return HttpStatus.NOT_FOUND;
-        }
-        if (normalized.contains("expired") || normalized.contains("invalid token")) {
-            return HttpStatus.UNAUTHORIZED;
-        }
-        return HttpStatus.BAD_REQUEST;
+    private ResponseEntity<Map<String, String>> error(HttpStatus status, String message) {
+        Map<String, String> body = new HashMap<>();
+        body.put("error", message);
+        return ResponseEntity.status(status).body(body);
     }
 }

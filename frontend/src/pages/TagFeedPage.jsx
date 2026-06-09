@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Loader from "../components/Loader";
 import PostCard from "../components/PostCard";
@@ -41,69 +41,34 @@ export default function TagFeedPage() {
   }
 
   return (
-    <div className="content-grid route-grid route-grid-wide">
-      <article className="panel route-hero-panel">
-        <div className="panel-header">
-          <h3>#{slug}</h3>
-          <p>{meta.totalElements} stories tagged with this topic.</p>
-        </div>
-
-        <div className="button-row">
-          {["latest", "trending"].map((value) => (
-            <button
-              key={value}
-              className={`action-button ${sort === value ? "primary" : "ghost"}`}
-              type="button"
-              onClick={() => {
-                setSort(value);
-                setPage(0);
-              }}
-            >
-              {value.charAt(0).toUpperCase() + value.slice(1)}
+    <div className="page-wrapper">
+      <div className="tag-page-header">
+        <h1 className="tag-page-name">#{slug}</h1>
+        <p className="tag-page-count">{meta.totalElements} stories</p>
+        <div className="feed-tabs" style={{ marginTop: "1rem", marginBottom: 0 }}>
+          {["latest", "trending"].map((s) => (
+            <button key={s} className={`feed-tab${sort === s ? " active" : ""}`}
+              onClick={() => { setSort(s); setPage(0); }}>
+              {s.charAt(0).toUpperCase() + s.slice(1)}
             </button>
           ))}
-          <Link className="action-button ghost" to="/feed">
-            Back to feed
-          </Link>
         </div>
-      </article>
+      </div>
 
-      <article className="panel">
-        <div className="panel-header">
-          <h3>Stories</h3>
-          <p>
-            Page {meta.number + 1} of {Math.max(meta.totalPages, 1)}
-          </p>
+      {error && <p className="form-error">{error}</p>}
+      {loading ? <Loader /> : posts.length === 0 ? (
+        <p className="empty">No stories for this tag yet.</p>
+      ) : (
+        posts.map((post) => <PostCard key={post.id} post={post} />)
+      )}
+
+      {meta.totalPages > 1 && (
+        <div className="pagination">
+          <button className="btn btn-ghost btn-sm" disabled={page === 0} onClick={() => setPage((p) => Math.max(p - 1, 0))}>← Previous</button>
+          <span className="pagination-info">Page {meta.number + 1} of {meta.totalPages}</span>
+          <button className="btn btn-ghost btn-sm" disabled={page >= meta.totalPages - 1} onClick={() => setPage((p) => p + 1)}>Next →</button>
         </div>
-
-        {loading ? (
-          <Loader label="Loading tag stories..." />
-        ) : error ? (
-          <p className="error-text">{error}</p>
-        ) : posts.length === 0 ? (
-          <p className="empty-state">No stories found for this tag.</p>
-        ) : (
-          <div className="post-grid">
-            {posts.map((post) => (
-              <PostCard key={post.id} post={post} compact />
-            ))}
-          </div>
-        )}
-
-        <div className="button-row">
-          <button className="action-button ghost" type="button" disabled={page === 0 || loading} onClick={() => setPage((value) => Math.max(value - 1, 0))}>
-            Previous
-          </button>
-          <button
-            className="action-button primary"
-            type="button"
-            disabled={loading || meta.totalPages === 0 || page >= meta.totalPages - 1}
-            onClick={() => setPage((value) => value + 1)}
-          >
-            Next
-          </button>
-        </div>
-      </article>
+      )}
     </div>
   );
 }

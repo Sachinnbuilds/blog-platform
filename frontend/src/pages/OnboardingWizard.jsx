@@ -121,48 +121,58 @@ export default function OnboardingWizard() {
 
   if (loading) {
     return (
-      <article className="panel route-detail-card">
+      <div className="page-wrapper-narrow" style={{ paddingTop: "2rem" }}>
         <Loader label="Loading welcome..." />
-      </article>
+      </div>
     );
   }
 
   return (
-    <article className="panel route-detail-card">
-      <div className="panel-header">
-        <h3>Welcome</h3>
-        <p>Set up enough context for a useful feed.</p>
+    <div className="page-wrapper-narrow">
+      <div className="editor-page">
+        <div className="editor-header">
+          <h1 className="page-title" style={{ marginBottom: "0.25rem" }}>Welcome</h1>
+          <p className="text-muted">Set up enough context for a useful feed.</p>
+        </div>
+
+        <div className="feed-tabs">
+          {["Profile", "Interests", "Writers"].map((label, index) => (
+            <button key={label} type="button" className={`feed-tab${step === index ? " active" : ""}`} disabled>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {step === 0 ? (
-        <div className="form-stack">
-          <label className="field">
-            <span className="field-label">Display name</span>
-            <input
+        <div>
+          <div className="form-field">
+            <label className="form-label">Display name</label>
+            <input className="form-input"
               value={profile.displayName}
               onChange={(event) => setProfile((current) => ({ ...current, displayName: event.target.value }))}
               maxLength={255}
             />
-          </label>
-          <label className="field">
-            <span className="field-label">Short bio</span>
-            <textarea
+          </div>
+          <div className="form-field">
+            <label className="form-label">Short bio</label>
+            <textarea className="form-textarea"
               rows={4}
               value={profile.bio}
               onChange={(event) => setProfile((current) => ({ ...current, bio: event.target.value }))}
               maxLength={500}
             />
-          </label>
+          </div>
         </div>
       ) : null}
 
       {step === 1 ? (
-        <div className="form-stack">
-          <p className="helper-text">Choose 3 to 5 interests.</p>
+        <div>
+          <p className="form-hint" style={{ marginBottom: "1rem" }}>Choose 3 to 5 interests.</p>
           <div className="tag-row">
             {tags.slice(0, 16).map((tag) => (
               <button
-                className={`tab-chip ${selected.includes(tag.name) ? "active" : ""}`}
+                className={`tag${selected.includes(tag.name) ? " active" : ""}`}
                 key={tag.id || tag.slug}
                 type="button"
                 onClick={() => toggleTag(tag.name)}
@@ -175,18 +185,18 @@ export default function OnboardingWizard() {
       ) : null}
 
       {step === 2 ? (
-        <div className="stack-list">
-          {suggested.length === 0 ? <p className="empty-state">No writer suggestions yet.</p> : null}
+        <div>
+          {suggested.length === 0 ? <p className="empty">No writer suggestions yet.</p> : null}
           {suggested.map((author) => (
-            <div className="list-row list-row-wide" key={author.username}>
-              <div className="profile-header compact-profile-header">
-                <div className="avatar-circle small">{initialsForProfile(author)}</div>
+            <div className="dashboard-post-row" key={author.username}>
+              <div className="dashboard-post-body" style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <div className="avatar avatar-sm">{initialsForProfile(author)}</div>
                 <div>
-                  <strong>{author.displayName || author.username}</strong>
-                  <p>@{author.username}</p>
+                  <div className="dashboard-post-title">{author.displayName || author.username}</div>
+                  <div className="dashboard-post-meta">@{author.username}</div>
                 </div>
               </div>
-              <button className="action-button ghost" type="button" disabled={saving} onClick={() => follow(author.username)}>
+              <button className="btn btn-ghost btn-sm" type="button" disabled={saving} onClick={() => follow(author.username)}>
                 Follow
               </button>
             </div>
@@ -194,18 +204,18 @@ export default function OnboardingWizard() {
         </div>
       ) : null}
 
-      {error ? <p className="error-text">{error}</p> : null}
+      {error ? <p className="form-error">{error}</p> : null}
 
-      <div className="button-row">
+      <div className="btn-row" style={{ marginTop: "1.5rem" }}>
         {step === 2 ? (
-          <button className="action-button ghost" type="button" onClick={() => navigate("/feed")}>
+          <button className="btn btn-ghost" type="button" onClick={() => navigate("/feed")}>
             Skip
           </button>
         ) : null}
-        <button className="action-button primary" type="button" disabled={!canContinue || saving} onClick={saveAndContinue}>
+        <button className="btn btn-primary" type="button" disabled={!canContinue || saving} onClick={saveAndContinue}>
           {step === 2 ? "Finish" : "Continue"}
         </button>
       </div>
-    </article>
+    </div>
   );
 }

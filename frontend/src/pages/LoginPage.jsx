@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -23,42 +23,35 @@ export default function LoginPage() {
   }
 
   return (
-    <article className="panel auth-panel">
-      <div className="panel-header">
-        <h3>Login</h3>
-        <p>JWT login wired through Auth Context and Axios interceptors.</p>
+    <div className="auth-page">
+      <div className="auth-card">
+        <h1 className="auth-title">Welcome back</h1>
+        <p className="auth-subtitle">Sign in to your account</p>
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-field">
+            <label className="form-label">Username</label>
+            <input className="form-input" value={form.username}
+              onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+              placeholder="yourname" autoComplete="username" />
+          </div>
+          <div className="form-field">
+            <label className="form-label">Password</label>
+            <input className="form-input" type="password" value={form.password}
+              onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+              placeholder="••••••••" autoComplete="current-password" />
+          </div>
+          {error && <p className="form-error">{error}</p>}
+          <button className="btn btn-primary" type="submit" disabled={authLoading}
+            style={{ width: "100%", justifyContent: "center", marginTop: "0.5rem" }}>
+            {authLoading ? "Signing in…" : "Sign in"}
+          </button>
+        </form>
+
+        <p className="text-muted" style={{ marginTop: "1.5rem", textAlign: "center" }}>
+          No account? <Link to="/register" className="link-underline">Create one</Link>
+        </p>
       </div>
-
-      <form className="form-stack" onSubmit={handleSubmit}>
-        <label className="field">
-          <span className="field-label">Username</span>
-          <input
-            value={form.username}
-            onChange={(event) => setForm((current) => ({ ...current, username: event.target.value }))}
-            placeholder="writer01"
-          />
-        </label>
-
-        <label className="field">
-          <span className="field-label">Password</span>
-          <input
-            type="password"
-            value={form.password}
-            onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
-            placeholder="••••••••"
-          />
-        </label>
-
-        {error ? <p className="error-text">{error}</p> : null}
-
-        <button className="action-button primary" type="submit" disabled={authLoading}>
-          {authLoading ? "Signing in..." : "Sign in"}
-        </button>
-      </form>
-
-      <p className="helper-text">
-        Need an account? <Link to="/register">Create one here</Link>.
-      </p>
-    </article>
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Loader from "../components/Loader";
 import { useAuth } from "../contexts/AuthContext";
@@ -14,12 +14,16 @@ const initialForm = {
 };
 
 export default function EditProfilePage() {
-  const { refreshUser } = useAuth();
+  const { refreshUser, logout } = useAuth();
   const [form, setForm] = useState(initialForm);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
   const [error, setError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
   const [feedback, setFeedback] = useState("");
+  const [passwordFeedback, setPasswordFeedback] = useState("");
 
   useEffect(() => {
     loadProfile();
@@ -58,73 +62,106 @@ export default function EditProfilePage() {
     }
   }
 
-  if (loading) {
-    return (
-      <article className="panel route-detail-card">
-        <Loader label="Loading profile settings..." />
-      </article>
-    );
+  async function handlePasswordSubmit(event) {
+    event.preventDefault();
+    setChangingPassword(true);
+    setPasswordError("");
+    setPasswordFeedback("");
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError("New passwords do not match.");
+      setChangingPassword(false);
+      return;
+    }
+
+    try {
+      await api.changePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword
+      });
+      setPasswordFeedback("Password changed. Please sign in again.");
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      setTimeout(() => logout(), 800);
+    } catch (err) {
+      setPasswordError(extractApiError(err, "Failed to change password."));
+    } finally {
+      setChangingPassword(false);
+    }
   }
 
+  if (loading) return <div className="page-wrapper-narrow"><Loader label="Loading profile…" /></div>;
+
   return (
-    <div className="content-grid route-grid route-grid-wide">
-      <article className="panel">
-        <div className="profile-header">
-          <div className="avatar-circle">{initialsForProfile(form)}</div>
-          <div>
-            <h3>Profile Settings</h3>
-            <p className="helper-text">V3 uses generated initials avatars.</p>
+    <div className="page-wrapper-narrow">
+      <div style={{ paddingTop: "2rem" }}>
+        <h1 className="page-title" style={{ marginBottom: "0.25rem" }}>Edit profile</h1>
+        <p className="text-muted" style={{ marginBottom: "2rem" }}>Update how you appear to readers.</p>
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-field">
+            <label className="form-label">Display name</label>
+            <input className="form-input" value={form.displayName} maxLength={80}
+              onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))} />
           </div>
-        </div>
+          <div className="form-field">
+            <label className="form-label">Bio</label>
+            <textarea className="form-textarea" rows={3} value={form.bio} maxLength={500}
+              onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))}
+              placeholder="Tell readers about yourself…" />
+          </div>
+          <div className="form-field">
+            <label className="form-label">Website</label>
+            <input className="form-input" value={form.website}
+              onChange={(e) => setForm((f) => ({ ...f, website: e.target.value }))}
+              placeholder="https://yoursite.com" />
+          </div>
+          <div className="form-field">
+            <label className="form-label">Location</label>
+            <input className="form-input" value={form.location}
+              onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+              placeholder="City, Country" />
+          </div>
 
-        <form className="form-stack" onSubmit={handleSubmit}>
-          <label className="field">
-            <span className="field-label">Display name</span>
-            <input
-              value={form.displayName}
-              onChange={(event) => setForm((current) => ({ ...current, displayName: event.target.value }))}
-              maxLength={255}
-            />
-          </label>
-          <label className="field">
-            <span className="field-label">Bio</span>
-            <textarea
-              rows={5}
-              value={form.bio}
-              onChange={(event) => setForm((current) => ({ ...current, bio: event.target.value }))}
-              maxLength={500}
-            />
-          </label>
-          <label className="field">
-            <span className="field-label">Website</span>
-            <input
-              value={form.website}
-              onChange={(event) => setForm((current) => ({ ...current, website: event.target.value }))}
-              maxLength={512}
-            />
-          </label>
-          <label className="field">
-            <span className="field-label">Location</span>
-            <input
-              value={form.location}
-              onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))}
-              maxLength={255}
-            />
-          </label>
+          {error && <p className="form-error">{error}</p>}
+          {feedback && <p className="form-success">{feedback}</p>}
 
-          {error ? <p className="error-text">{error}</p> : null}
-          {feedback ? <p className="success-text">{feedback}</p> : null}
-
-          <div className="button-row">
-            <Link className="action-button ghost" to="/dashboard">
-              Dashboard
-            </Link>
-            <button className="action-button primary" type="submit" disabled={saving}>
-              {saving ? "Saving..." : "Save profile"}
+          <div className="btn-row">
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? "Saving…" : "Save profile"}
             </button>
           </div>
         </form>
-      </article>
+
+        <div style={{ marginTop: "3rem", paddingTop: "2rem", borderTop: "1px solid var(--border)" }}>
+          <h2 className="section-heading" style={{ fontSize: "1.1rem" }}>Password</h2>
+          <form onSubmit={handlePasswordSubmit}>
+            <div className="form-field">
+              <label className="form-label">Current password</label>
+              <input className="form-input" type="password" value={passwordForm.currentPassword}
+                onChange={(e) => setPasswordForm((f) => ({ ...f, currentPassword: e.target.value }))} />
+            </div>
+            <div className="form-field">
+              <label className="form-label">New password</label>
+              <input className="form-input" type="password" minLength={8} value={passwordForm.newPassword}
+                onChange={(e) => setPasswordForm((f) => ({ ...f, newPassword: e.target.value }))} />
+            </div>
+            <div className="form-field">
+              <label className="form-label">Confirm new password</label>
+              <input className="form-input" type="password" minLength={8} value={passwordForm.confirmPassword}
+                onChange={(e) => setPasswordForm((f) => ({ ...f, confirmPassword: e.target.value }))} />
+            </div>
+
+            {passwordError && <p className="form-error">{passwordError}</p>}
+            {passwordFeedback && <p className="form-success">{passwordFeedback}</p>}
+
+            <div className="btn-row">
+              <button type="submit" className="btn btn-primary" disabled={changingPassword}>
+                {changingPassword ? "Changing…" : "Change password"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }

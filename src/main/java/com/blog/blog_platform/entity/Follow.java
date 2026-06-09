@@ -3,12 +3,16 @@ package com.blog.blog_platform.entity;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
 @Table(
     name = "follows",
     uniqueConstraints = @UniqueConstraint(name = "follows_follower_following_key", columnNames = {"follower_id", "following_id"})
 )
+@Getter
+@Setter
 public class Follow {
 
     @Id
@@ -32,16 +36,4 @@ public class Follow {
             this.createdAt = LocalDateTime.now();
         }
     }
-
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-
-    public User getFollower() { return follower; }
-    public void setFollower(User follower) { this.follower = follower; }
-
-    public User getFollowing() { return following; }
-    public void setFollowing(User following) { this.following = following; }
-
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

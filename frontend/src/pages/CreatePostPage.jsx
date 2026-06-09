@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ImageUpload from "../components/ImageUpload";
 import { api } from "../lib/api";
@@ -12,11 +12,24 @@ const initialForm = {
   thumbnail: ""
 };
 
+const AUTOSAVE_KEY = "blog-platform-create-draft";
+
 export default function CreatePostPage() {
   const navigate = useNavigate();
-  const [form, setForm] = useState(initialForm);
+  const [form, setForm] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(AUTOSAVE_KEY)) || initialForm;
+    } catch {
+      return initialForm;
+    }
+  });
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(form));
+  }, [form]);
 
   async function savePost(status) {
     const tags = form.tags
@@ -33,10 +46,11 @@ export default function CreatePostPage() {
         title: form.title,
         summary: form.summary || undefined,
         content: form.content,
-        tags: tags.join(","),
+        tags,
         status,
         thumbnail: form.thumbnail || undefined
       });
+      localStorage.removeItem(AUTOSAVE_KEY);
       navigate(status === "DRAFT" ? "/dashboard" : `/posts/${created.slug}`);
     } catch (err) {
       setError(extractApiError(err, "Failed to save post."));
@@ -51,85 +65,66 @@ export default function CreatePostPage() {
   }
 
   return (
-    <article className="panel editor-panel">
-      <div className="panel-header">
-        <h3>Create Post</h3>
-        <p>Write with tags, summary, image upload, and draft or publish status.</p>
-      </div>
-
-      <form className="form-stack" onSubmit={handleSubmit}>
-        <label className="field">
-          <span className="field-label">Title</span>
-          <input
-            value={form.title}
-            onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
-            placeholder="Write a clear title"
-            maxLength={180}
-          />
-        </label>
-
-        <label className="field">
-          <span className="field-label">Summary</span>
-          <textarea
-            rows={3}
-            value={form.summary}
-            onChange={(event) => setForm((current) => ({ ...current, summary: event.target.value }))}
-            placeholder="Short preview for feeds and search"
-            maxLength={500}
-          />
-        </label>
-
-        <label className="field">
-          <span className="field-label">Tags</span>
-          <input
-            value={form.tags}
-            onChange={(event) => setForm((current) => ({ ...current, tags: event.target.value }))}
-            placeholder="react, writing, backend"
-          />
-          <span className="helper-text">Use commas. Up to 5 tags are sent.</span>
-        </label>
-
-        <label className="field">
-          <span className="field-label">Content</span>
-          <textarea
-            rows={12}
-            value={form.content}
-            onChange={(event) => setForm((current) => ({ ...current, content: event.target.value }))}
-            placeholder="Write the article body"
-          />
-        </label>
-
-        <ImageUpload
-          value={form.thumbnail}
-          onChange={(thumbnail) => setForm((current) => ({ ...current, thumbnail }))}
-        />
-
-        {form.thumbnail ? (
-          <label className="field">
-            <span className="field-label">Thumbnail URL</span>
-            <input value={form.thumbnail} readOnly />
-          </label>
-        ) : null}
-
-        {error ? <p className="error-text">{error}</p> : null}
-
-        <div className="button-row">
-          <button className="action-button ghost" type="button" onClick={() => setForm(initialForm)}>
-            Reset
-          </button>
-          <button
-            className="action-button ghost"
-            type="button"
-            disabled={saving}
-            onClick={() => savePost("DRAFT")}
-          >
-            {saving ? "Saving..." : "Save draft"}
-          </button>
-          <button className="action-button primary" type="submit" disabled={saving}>
-            {saving ? "Publishing..." : "Publish"}
-          </button>
+    <div className="page-wrapper-narrow">
+      <div className="editor-page">
+        <div className="editor-header">
+          <h1 style={{ fontFamily: "var(--font-display)", fontSize: "1.5rem", fontWeight: 700, marginBottom: "0.25rem" }}>New story</h1>
+          <p className="text-muted">Write, tag, and publish or save as draft.</p>
         </div>
-      </form>
-    </article>
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-field">
+            <label className="form-label">Title</label>
+            <input className="form-input" value={form.title} maxLength={180}
+              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+              placeholder="Give your story a title…" />
+          </div>
+          <div className="form-field">
+            <label className="form-label">Summary <span className="text-muted" style={{ fontWeight: 400 }}>(shown in feeds)</span></label>
+            <textarea className="form-textarea" rows={2} value={form.summary} maxLength={500}
+              onChange={(e) => setForm((f) => ({ ...f, summary: e.target.value }))}
+              placeholder="A short preview of this story…" />
+          </div>
+          <div className="form-field">
+            <label className="form-label">Tags</label>
+            <input className="form-input" value={form.tags}
+              onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
+              placeholder="react, writing, design" />
+            <p className="form-hint">Comma-separated. Up to 5 tags.</p>
+          </div>
+          <div className="form-field">
+            <label className="form-label">Content</label>
+            <textarea className="form-textarea" rows={18} value={form.content}
+              onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
+              placeholder="Tell your story…" style={{ fontFamily: "var(--font-body)", fontSize: "1rem", lineHeight: "1.8" }} />
+          </div>
+
+          <ImageUpload value={form.thumbnail} onChange={(thumbnail) => setForm((f) => ({ ...f, thumbnail }))} />
+
+          {error && <p className="form-error">{error}</p>}
+
+          <div className="editor-toolbar">
+            <button type="button" className="btn btn-ghost" onClick={() => setPreviewOpen((open) => !open)}>
+              {previewOpen ? "Hide preview" : "Preview"}
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={() => { localStorage.removeItem(AUTOSAVE_KEY); setForm(initialForm); }}>Reset</button>
+            <button type="button" className="btn btn-ghost" disabled={saving} onClick={() => savePost("DRAFT")}>
+              {saving ? "Saving…" : "Save draft"}
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? "Publishing…" : "Publish"}
+            </button>
+          </div>
+        </form>
+
+        {previewOpen && (
+          <article className="editor-preview">
+            <h2>{form.title || "Untitled story"}</h2>
+            {form.summary && <p className="editor-preview-summary">{form.summary}</p>}
+            <div className="post-body">{form.content || "Nothing written yet."}</div>
+          </article>
+        )}
+      </div>
+    </div>
   );
 }

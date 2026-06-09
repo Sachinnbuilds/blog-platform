@@ -1,11 +1,11 @@
 export default function PlaceholderPage({ title, description }) {
   return (
-    <article className="panel route-detail-card">
-      <div className="panel-header">
-        <h3>{title}</h3>
-        <p>{description}</p>
+    <div className="page-wrapper-narrow">
+      <div style={{ paddingTop: "2rem" }}>
+        <h1 className="page-title">{title}</h1>
+        <p className="page-subtitle">{description}</p>
       </div>
-      <p className="helper-text">This route is now real and protected where needed.</p>
-    </article>
+      <p className="text-muted">This route is available where needed.</p>
+    </div>
   );
 }

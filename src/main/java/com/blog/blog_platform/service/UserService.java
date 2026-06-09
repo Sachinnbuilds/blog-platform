@@ -1,12 +1,17 @@
 package com.blog.blog_platform.service;
 
+import com.blog.blog_platform.dto.ChangePasswordRequest;
 import com.blog.blog_platform.dto.InterestsRequest;
 import com.blog.blog_platform.dto.OnboardingStateDTO;
 import com.blog.blog_platform.dto.UpdateProfileRequest;
 import com.blog.blog_platform.dto.UserProfileDTO;
 import com.blog.blog_platform.entity.User;
+import com.blog.blog_platform.exception.BadRequestException;
+import com.blog.blog_platform.exception.ForbiddenException;
+import com.blog.blog_platform.exception.NotFoundException;
 import com.blog.blog_platform.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,9 +24,12 @@ public class UserService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     public User getUserByUsername(String username) {
         return userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
     }
 
     public UserProfileDTO getPublicProfile(String username) {
@@ -49,6 +57,19 @@ public class UserService {
         User user = getUserByUsername(currentUsername);
         user.setTokenVersion(user.getTokenVersion() + 1);
         return userRepository.save(user);
+    }
+
+    public void changePassword(String currentUsername, ChangePasswordRequest request) {
+        User user = getUserByUsername(currentUsername);
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new ForbiddenException("Current password is incorrect");
+        }
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new BadRequestException("New password must be different from the current password");
+        }
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setTokenVersion(user.getTokenVersion() + 1);
+        userRepository.save(user);
     }
 
     public User saveInterests(String currentUsername, InterestsRequest request) {

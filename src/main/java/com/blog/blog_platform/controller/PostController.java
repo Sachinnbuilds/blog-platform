@@ -5,7 +5,10 @@ import java.util.List;
 
 import com.blog.blog_platform.dto.PostDetailDTO;
 import com.blog.blog_platform.dto.PostSummaryDTO;
+import com.blog.blog_platform.dto.PostUpsertRequest;
 import com.blog.blog_platform.entity.PostStatus;
+import com.blog.blog_platform.exception.BadRequestException;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +22,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.blog.blog_platform.entity.Post;
@@ -33,28 +37,38 @@ public class PostController {
     private PostService postService;
 
     @PostMapping
-    public ResponseEntity<Post> createPost(@RequestParam @NotBlank @Size(max = 180) String title,
-                                           @RequestParam @NotBlank @Size(max = 50000) String content,
+    public ResponseEntity<Post> createPost(@Valid @RequestBody(required = false) PostUpsertRequest body,
+                                           @RequestParam(required = false) @Size(max = 180) String title,
+                                           @RequestParam(required = false) @Size(max = 50000) String content,
                                            @RequestParam(required = false) List<String> tags,
                                            @RequestParam(required = false) @Size(max = 2048) String thumbnail,
                                            @RequestParam(required = false) @Size(max = 500) String summary,
                                            @RequestParam(defaultValue = "PUBLISHED") PostStatus status,
                                            Principal principal) {
-        return ResponseEntity.ok(postService.createPost(title, content, principal.getName(), tags, thumbnail, summary, status));
+        PostUpsertRequest request = resolveRequest(body, title, content, tags, thumbnail, summary, status);
+        return ResponseEntity.ok(postService.createPost(
+                request.getTitle(),
+                request.getContent(),
+                principal.getName(),
+                request.getTags(),
+                request.getThumbnail(),
+                request.getSummary(),
+                request.getStatus()
+        ));
     }
 
     @GetMapping
     public ResponseEntity<Page<PostSummaryDTO>> getAllPosts(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity.ok(postService.getAllPostSummaries(page, size));
+        return ResponseEntity.ok(postService.getAllPostSummaries(safePage(page), safeSize(size)));
     }
 
     @GetMapping("/trending")
     public ResponseEntity<Page<PostSummaryDTO>> getTrendingPosts(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity.ok(postService.getTrendingPostSummaries(page, size));
+        return ResponseEntity.ok(postService.getTrendingPostSummaries(safePage(page), safeSize(size)));
     }
 
     @GetMapping("/feed")
@@ -63,7 +77,7 @@ public class PostController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             Principal principal) {
-        return ResponseEntity.ok(postService.getFeedSummaries(principal.getName(), type, page, size));
+        return ResponseEntity.ok(postService.getFeedSummaries(principal.getName(), type, safePage(page), safeSize(size)));
     }
 
     @GetMapping("/by-user/{username}")
@@ -71,7 +85,7 @@ public class PostController {
             @PathVariable String username,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity.ok(postService.getPostSummariesByAuthor(username, page, size));
+        return ResponseEntity.ok(postService.getPostSummariesByAuthor(username, safePage(page), safeSize(size)));
     }
 
     @GetMapping("/me")
@@ -79,7 +93,7 @@ public class PostController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             Principal principal) {
-        return ResponseEntity.ok(postService.getPostSummariesByAuthor(principal.getName(), page, size));
+        return ResponseEntity.ok(postService.getPostSummariesByAuthor(principal.getName(), safePage(page), safeSize(size)));
     }
 
     @GetMapping("/drafts")
@@ -87,7 +101,7 @@ public class PostController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             Principal principal) {
-        return ResponseEntity.ok(postService.getDraftSummariesByAuthor(principal.getName(), page, size));
+        return ResponseEntity.ok(postService.getDraftSummariesByAuthor(principal.getName(), safePage(page), safeSize(size)));
     }
 
     @GetMapping("/{id}")
@@ -96,8 +110,9 @@ public class PostController {
     }
 
     @GetMapping("/slug/{slug}")
-    public ResponseEntity<PostDetailDTO> getPostBySlug(@PathVariable String slug) {
-        return ResponseEntity.ok(postService.getPostDetailBySlug(slug));
+    public ResponseEntity<PostDetailDTO> getPostBySlug(@PathVariable String slug, Principal principal) {
+        String username = principal == null ? null : principal.getName();
+        return ResponseEntity.ok(postService.getPostDetailBySlug(slug, username));
     }
 
     @GetMapping("/editor/{slug}")
@@ -115,7 +130,7 @@ public class PostController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         String query = q != null ? q : keyword;
-        return ResponseEntity.ok(postService.searchPostSummaries(query, tags, author, sort, page, size));
+        return ResponseEntity.ok(postService.searchPostSummaries(query, tags, author, sort, safePage(page), safeSize(size)));
     }
 
     @GetMapping("/tag/{slug}")
@@ -123,19 +138,30 @@ public class PostController {
             @PathVariable String slug,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity.ok(postService.getPostSummariesByTag(slug, page, size));
+        return ResponseEntity.ok(postService.getPostSummariesByTag(slug, safePage(page), safeSize(size)));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<Post> updatePost(@PathVariable Long id,
-                                           @RequestParam @NotBlank @Size(max = 180) String title,
-                                           @RequestParam @NotBlank @Size(max = 50000) String content,
+                                           @Valid @RequestBody(required = false) PostUpsertRequest body,
+                                           @RequestParam(required = false) @Size(max = 180) String title,
+                                           @RequestParam(required = false) @Size(max = 50000) String content,
                                            @RequestParam(required = false) List<String> tags,
                                            @RequestParam(required = false) @Size(max = 2048) String thumbnail,
                                            @RequestParam(required = false) @Size(max = 500) String summary,
                                            @RequestParam(defaultValue = "PUBLISHED") PostStatus status,
                                            Principal principal) {
-        return ResponseEntity.ok(postService.updatePost(id, title, content, tags, thumbnail, summary, status, principal.getName()));
+        PostUpsertRequest request = resolveRequest(body, title, content, tags, thumbnail, summary, status);
+        return ResponseEntity.ok(postService.updatePost(
+                id,
+                request.getTitle(),
+                request.getContent(),
+                request.getTags(),
+                request.getThumbnail(),
+                request.getSummary(),
+                request.getStatus(),
+                principal.getName()
+        ));
     }
 
     @DeleteMapping("/{id}")
@@ -151,5 +177,34 @@ public class PostController {
             throw new RuntimeException("Please login to like a post");
         }
         return ResponseEntity.ok(postService.likePostDetail(id, principal.getName()));
+    }
+
+    private PostUpsertRequest resolveRequest(PostUpsertRequest body, String title, String content, List<String> tags,
+                                             String thumbnail, String summary, PostStatus status) {
+        PostUpsertRequest request = body;
+        if (request == null) {
+            request = new PostUpsertRequest();
+            request.setTitle(title);
+            request.setContent(content);
+            request.setTags(tags);
+            request.setThumbnail(thumbnail);
+            request.setSummary(summary);
+            request.setStatus(status);
+        }
+        if (request.getTitle() == null || request.getTitle().isBlank()) {
+            throw new BadRequestException("Title is required");
+        }
+        if (request.getContent() == null || request.getContent().isBlank()) {
+            throw new BadRequestException("Content is required");
+        }
+        return request;
+    }
+
+    private int safePage(int page) {
+        return Math.max(0, page);
+    }
+
+    private int safeSize(int size) {
+        return Math.max(1, Math.min(size, 50));
     }
 }

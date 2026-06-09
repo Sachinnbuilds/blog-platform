@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { api } from "../lib/api";
-import { extractApiError } from "../lib/http";
 import Loader from "../components/Loader";
 import PostCard from "../components/PostCard";
 import { useAuth } from "../contexts/AuthContext";
+import { api } from "../lib/api";
+import { extractApiError } from "../lib/http";
 import { initialsForProfile } from "../lib/profile";
 
-const initialQuery = { keyword: "", tag: "", tab: "trending", page: 0, size: 6 };
+const initialQuery = { keyword: "", tag: "", tab: "trending", page: 0, size: 8 };
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -16,296 +16,188 @@ export default function HomePage() {
   const [tags, setTags] = useState([]);
   const [query, setQuery] = useState(initialQuery);
   const [meta, setMeta] = useState({ totalElements: 0, totalPages: 0, number: 0 });
-  const [feedback, setFeedback] = useState("Loading feed...");
   const [loading, setLoading] = useState(false);
   const [followingWriter, setFollowingWriter] = useState("");
+  const [writerFollowState, setWriterFollowState] = useState({});
+  const [writerError, setWriterError] = useState("");
 
-  useEffect(() => {
-    loadTags();
-  }, []);
+  useEffect(() => { api.getTrendingTags().then((d) => setTags(d || [])).catch(() => {}); }, []);
 
   useEffect(() => {
     const tag = searchParams.get("tag") || "";
-    if (tag) {
-      setQuery((current) => ({ ...current, tag, page: 0 }));
-    }
+    if (tag) setQuery((q) => ({ ...q, tag, page: 0 }));
   }, [searchParams]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      loadPosts();
-    }, 500);
-
-    return () => window.clearTimeout(timer);
-  }, [query.keyword, query.tag, query.tab, query.page, query.size, user]);
-
-  async function loadTags() {
-    try {
-      const data = await api.getTrendingTags();
-      setTags(data);
-    } catch (error) {
-      setFeedback(extractApiError(error, "Failed to load tags."));
-    }
-  }
+    const t = setTimeout(() => loadPosts(), 400);
+    return () => clearTimeout(t);
+  }, [query.keyword, query.tag, query.tab, query.page, user]);
 
   async function loadPosts() {
     setLoading(true);
     try {
       let data;
       if (query.keyword) {
-        data = await api.searchPosts(query.keyword, {
-          tags: query.tag || undefined,
-          sort: query.tab === "trending" ? "trending" : "latest",
-          page: query.page,
-          size: query.size
-        });
+        data = await api.searchPosts(query.keyword, { tags: query.tag || undefined, sort: query.tab === "trending" ? "trending" : "latest", page: query.page, size: query.size });
       } else if (query.tag) {
-        data = await api.getPostsByTag(query.tag, {
-          page: query.page,
-          size: query.size
-        });
+        data = await api.getPostsByTag(query.tag, { page: query.page, size: query.size });
       } else if (query.tab === "following" || query.tab === "for_you") {
-        data = user
-          ? await api.getFeed({ type: query.tab, page: query.page, size: query.size })
-          : await api.getTrendingPosts({ page: query.page, size: query.size });
+        data = user ? await api.getFeed({ type: query.tab, page: query.page, size: query.size }) : await api.getTrendingPosts({ page: query.page, size: query.size });
       } else if (query.tab === "trending") {
         data = await api.getTrendingPosts({ page: query.page, size: query.size });
       } else {
         data = await api.getPosts({ page: query.page, size: query.size });
       }
-
       setPosts(data.content || []);
-      setMeta({
-        totalElements: data.totalElements ?? 0,
-        totalPages: data.totalPages ?? 0,
-        number: data.number ?? 0
-      });
-      setFeedback(`${data.totalElements ?? data.content?.length ?? 0} stories available.`);
-    } catch (error) {
-      setFeedback(extractApiError(error, "Failed to load posts."));
-      setPosts([]);
-      setMeta({ totalElements: 0, totalPages: 0, number: 0 });
-    } finally {
-      setLoading(false);
-    }
+      setMeta({ totalElements: data.totalElements ?? 0, totalPages: data.totalPages ?? 0, number: data.number ?? 0 });
+    } catch (err) {
+      setPosts([]); setMeta({ totalElements: 0, totalPages: 0, number: 0 });
+    } finally { setLoading(false); }
   }
 
-  const featuredPost = posts[0];
   const suggestedWriters = uniqueAuthors(posts, user?.username).slice(0, 5);
-  const personalizedTabLocked = !user && (query.tab === "following" || query.tab === "for_you");
 
-  async function followWriter(username) {
+  useEffect(() => {
+    if (!user || suggestedWriters.length === 0) {
+      setWriterFollowState({});
+      return;
+    }
+
+    let active = true;
+    Promise.all(
+      suggestedWriters.map(async (writer) => {
+        try {
+          const status = await api.isFollowing(writer.username);
+          return [writer.username, Boolean(status.isFollowing)];
+        } catch {
+          return [writer.username, false];
+        }
+      })
+    ).then((entries) => {
+      if (active) setWriterFollowState(Object.fromEntries(entries));
+    });
+
+    return () => { active = false; };
+  }, [user, suggestedWriters.map((writer) => writer.username).join("|")]);
+
+  async function toggleWriterFollow(username) {
     setFollowingWriter(username);
+    setWriterError("");
+    const wasFollowing = Boolean(writerFollowState[username]);
     try {
-      await api.followUser(username);
-      setFeedback(`Following @${username}.`);
-    } catch (error) {
-      setFeedback(extractApiError(error, "Failed to follow writer."));
+      if (wasFollowing) {
+        await api.unfollowUser(username);
+      } else {
+        await api.followUser(username);
+      }
+      setWriterFollowState((state) => ({ ...state, [username]: !wasFollowing }));
+    } catch (err) {
+      setWriterError(extractApiError(err, "Failed to update follow status."));
     } finally {
       setFollowingWriter("");
     }
   }
 
   return (
-    <div className="content-grid feed-layout">
-      <section className="feed-main">
-        <article className="panel route-hero-panel">
-          <div className="panel-header">
-            <h3>Feed</h3>
-            <p>Trending, latest, following, and interest-based discovery.</p>
-          </div>
-
-          <div className="button-row">
+    <div className="page-wrapper">
+      <div className="feed-layout">
+        {/* Main feed */}
+        <div className="feed-main">
+          {/* Tabs */}
+          <div className="feed-tabs">
             {["trending", "latest", "following", "for_you"].map((tab) => (
-              <button
-                key={tab}
-                className={`action-button ${query.tab === tab ? "primary" : "ghost"}`}
-                type="button"
+              <button key={tab}
+                className={`feed-tab${query.tab === tab ? " active" : ""}`}
                 disabled={!user && (tab === "following" || tab === "for_you")}
-                onClick={() => setQuery((current) => ({ ...current, tab, tag: "", page: 0 }))}
-              >
-                {tab === "for_you" ? "For You" : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                onClick={() => setQuery((q) => ({ ...q, tab, tag: "", page: 0 }))}>
+                {tab === "for_you" ? "For you" : tab.charAt(0).toUpperCase() + tab.slice(1)}
               </button>
             ))}
           </div>
 
-          {!user ? (
-            <div className="feed-auth-note">
-              <span className="mini-tag">Member feeds</span>
-              <p>Following and For You unlock after login and onboarding. Public discovery stays available here.</p>
-              <Link className="action-button ghost" to="/login">Login</Link>
-            </div>
-          ) : null}
-
-          <div className="field-row">
-            <label className="field">
-              <span className="field-label">Search</span>
-              <input
-                value={query.keyword}
-                onChange={(event) =>
-                  setQuery((current) => ({ ...current, keyword: event.target.value, page: 0 }))
-                }
-                placeholder="Search by keyword"
-              />
-            </label>
-
-            <label className="field">
-              <span className="field-label">Tag</span>
-              <select
-                value={query.tag}
-                onChange={(event) =>
-                  setQuery((current) => ({ ...current, tag: event.target.value, page: 0 }))
-                }
-              >
-                <option value="">All tags</option>
-                {tags.map((tag) => (
-                  <option key={tag.id || tag.slug} value={tag.slug}>
-                    {tag.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <div className="button-row">
-            <button className="action-button ghost" onClick={() => setQuery(initialQuery)}>
-              Clear filters
-            </button>
-            <span className="helper-text">{personalizedTabLocked ? "Login to use this personalized feed." : feedback}</span>
-          </div>
-
-          {featuredPost ? (
-            <Link className="feature-story-link" to={`/posts/${featuredPost.slug}`}>
-              <div className="feature-story-block">
-                <div className="feature-story-copy">
-                  <span className="mini-tag">{featuredPost.tags?.[0]?.name || "Story"}</span>
-                  <h4>{featuredPost.title}</h4>
-                  <p>
-                    {(featuredPost.summary || featuredPost.content || "").slice(0, 220)}
-                    {(featuredPost.summary || featuredPost.content || "").length > 220 ? "..." : ""}
-                  </p>
-                </div>
-                {featuredPost.thumbnail ? (
-                  <div className="feature-story-thumb">
-                    <img src={featuredPost.thumbnail} alt={featuredPost.title} />
-                  </div>
-                ) : null}
-              </div>
-            </Link>
-          ) : null}
-        </article>
-
-        <article className="panel">
-          <div className="panel-header">
-            <h3>Stories</h3>
-            <p>
-              Result count: {meta.totalElements} | Page {meta.number + 1} of{" "}
-              {Math.max(meta.totalPages, 1)}
-            </p>
-          </div>
-
-          {loading ? (
-            <Loader label="Loading stories..." />
-          ) : posts.length === 0 ? (
-            <p className="empty-state">No posts matched the current feed filters.</p>
-          ) : (
-            <div className="post-grid">
-              {posts.map((post) => (
-                <PostCard key={post.id} post={post} compact />
+          {/* Tag filter row */}
+          {tags.length > 0 && (
+            <div className="tag-row" style={{ marginBottom: "1.5rem" }}>
+              <button className={`tag${!query.tag ? " tag-link" : " tag-link"}`}
+                style={!query.tag ? { background: "var(--ink)", color: "white", borderColor: "var(--ink)" } : {}}
+                onClick={() => setQuery((q) => ({ ...q, tag: "", page: 0 }))}>All</button>
+              {tags.slice(0, 8).map((tag) => (
+                <button key={tag.slug} className="tag tag-link"
+                  style={query.tag === tag.slug ? { background: "var(--ink)", color: "white", borderColor: "var(--ink)" } : {}}
+                  onClick={() => setQuery((q) => ({ ...q, tag: tag.slug, page: 0 }))}>
+                  {tag.name}
+                </button>
               ))}
             </div>
           )}
 
-          <div className="button-row">
-            <button
-              className="action-button ghost"
-              onClick={() =>
-                setQuery((current) => ({ ...current, page: Math.max(current.page - 1, 0) }))
-              }
-              disabled={query.page === 0 || loading}
-            >
-              Previous
-            </button>
-            <button
-              className="action-button primary"
-              onClick={() =>
-                setQuery((current) => ({
-                  ...current,
-                  page: current.page + 1
-                }))
-              }
-              disabled={loading || meta.totalPages === 0 || query.page >= meta.totalPages - 1}
-            >
-              Next
-            </button>
-          </div>
-        </article>
-      </section>
-
-      <aside className="feed-sidebar">
-        <article className="panel sidebar-panel">
-          <div className="panel-header">
-            <h3>Trending Tags</h3>
-            <p>Open topics ranked by activity.</p>
-          </div>
-          <div className="tag-row">
-            {tags.slice(0, 14).map((tag) => (
-              <Link className="mini-tag tag-link" key={tag.id || tag.slug} to={`/tag/${encodeURIComponent(tag.slug)}`}>
-                {tag.name}
-              </Link>
-            ))}
-          </div>
-        </article>
-
-        <article className="panel sidebar-panel">
-          <div className="panel-header">
-            <h3>Writers</h3>
-            <p>Authors active in this feed.</p>
-          </div>
-          {suggestedWriters.length === 0 ? (
-            <p className="empty-state">Writer suggestions appear as stories load.</p>
+          {/* Posts */}
+          {loading ? <Loader /> : posts.length === 0 ? (
+            <p className="empty">No stories found for this selection.</p>
           ) : (
-            <div className="stack-list">
-              {suggestedWriters.map((writer) => (
-                <div className="writer-row" key={writer.username}>
-                  <Link className="writer-profile-link" to={`/u/${writer.username}`}>
-                    <div className="avatar-circle small">{initialsForProfile(writer)}</div>
-                    <div>
-                      <strong>{writer.displayName || writer.username}</strong>
-                      <p>@{writer.username}</p>
+            posts.map((post) => <PostCard key={post.id} post={post} />)
+          )}
+
+          {/* Pagination */}
+          {!loading && (meta.totalPages > 1) && (
+            <div className="pagination">
+              <button className="btn btn-ghost btn-sm" disabled={query.page === 0}
+                onClick={() => setQuery((q) => ({ ...q, page: q.page - 1 }))}>← Previous</button>
+              <span className="pagination-info">Page {meta.number + 1} of {meta.totalPages}</span>
+              <button className="btn btn-ghost btn-sm" disabled={query.page >= meta.totalPages - 1}
+                onClick={() => setQuery((q) => ({ ...q, page: q.page + 1 }))}>Next →</button>
+            </div>
+          )}
+        </div>
+
+        {/* Sidebar */}
+        <aside className="feed-sidebar">
+          {tags.length > 0 && (
+            <div className="sidebar-section">
+              <div className="sidebar-heading">Trending topics</div>
+              <div className="tag-row">
+                {tags.slice(0, 12).map((tag) => (
+                  <Link key={tag.slug} to={`/tag/${encodeURIComponent(tag.slug)}`} className="tag tag-link">{tag.name}</Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {suggestedWriters.length > 0 && (
+            <div className="sidebar-section">
+              <div className="sidebar-heading">Writers in this feed</div>
+              {writerError && <p className="form-error">{writerError}</p>}
+              {suggestedWriters.map((w) => (
+                <div key={w.username} className="sidebar-writer">
+                  <Link to={`/u/${w.username}`} style={{ display: "flex", alignItems: "center", gap: "0.6rem", flex: 1, textDecoration: "none", minWidth: 0 }}>
+                    <div className="avatar avatar-sm">{initialsForProfile(w)}</div>
+                    <div style={{ minWidth: 0 }}>
+                      <div className="sidebar-writer-name">{w.displayName || w.username}</div>
+                      <div className="sidebar-writer-handle">@{w.username}</div>
                     </div>
                   </Link>
-                  {user ? (
-                    <button
-                      className="action-button ghost writer-follow-button"
-                      type="button"
-                      disabled={followingWriter === writer.username}
-                      onClick={() => followWriter(writer.username)}
-                    >
-                      {followingWriter === writer.username ? "..." : "Follow"}
+                  {user && (
+                    <button className="btn btn-ghost btn-sm" disabled={followingWriter === w.username}
+                      onClick={() => toggleWriterFollow(w.username)}>
+                      {followingWriter === w.username ? "…" : writerFollowState[w.username] ? "Following" : "Follow"}
                     </button>
-                  ) : null}
+                  )}
                 </div>
               ))}
             </div>
           )}
-        </article>
-      </aside>
+        </aside>
+      </div>
     </div>
   );
 }
 
 function uniqueAuthors(posts, currentUsername) {
-  const authors = new Map();
-  posts.forEach((post) => {
-    const username = post.authorUsername || post.author?.username;
-    if (!username || username === currentUsername || authors.has(username)) {
-      return;
-    }
-    authors.set(username, {
-      username,
-      displayName: post.authorDisplayName || post.author?.displayName || username
-    });
+  const seen = new Map();
+  posts.forEach((p) => {
+    const username = p.authorUsername || p.author?.username;
+    if (username && username !== currentUsername && !seen.has(username))
+      seen.set(username, { username, displayName: p.authorDisplayName || p.author?.displayName || username });
   });
-  return Array.from(authors.values());
+  return Array.from(seen.values());
 }

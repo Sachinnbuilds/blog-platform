@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -24,53 +24,42 @@ export default function RegisterPage() {
   }
 
   return (
-    <article className="panel auth-panel">
-      <div className="panel-header">
-        <h3>Register</h3>
-        <p>Account creation now lives in the shared routed auth flow.</p>
+    <div className="auth-page">
+      <div className="auth-card">
+        <h1 className="auth-title">Create account</h1>
+        <p className="auth-subtitle">Join and start writing</p>
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-field">
+            <label className="form-label">Username</label>
+            <input className="form-input" value={form.username}
+              onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+              placeholder="yourname" autoComplete="username" />
+          </div>
+          <div className="form-field">
+            <label className="form-label">Email</label>
+            <input className="form-input" type="email" value={form.email}
+              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+              placeholder="you@example.com" autoComplete="email" />
+          </div>
+          <div className="form-field">
+            <label className="form-label">Password</label>
+            <input className="form-input" type="password" value={form.password}
+              onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+              placeholder="At least 6 characters" autoComplete="new-password" />
+          </div>
+          {message && <p className="form-success">{message}</p>}
+          {error && <p className="form-error">{error}</p>}
+          <button className="btn btn-primary" type="submit" disabled={authLoading}
+            style={{ width: "100%", justifyContent: "center", marginTop: "0.5rem" }}>
+            {authLoading ? "Creating account…" : "Create account"}
+          </button>
+        </form>
+
+        <p className="text-muted" style={{ marginTop: "1.5rem", textAlign: "center" }}>
+          Already registered? <Link to="/login" className="link-underline">Sign in</Link>
+        </p>
       </div>
-
-      <form className="form-stack" onSubmit={handleSubmit}>
-        <label className="field">
-          <span className="field-label">Username</span>
-          <input
-            value={form.username}
-            onChange={(event) => setForm((current) => ({ ...current, username: event.target.value }))}
-            placeholder="newwriter"
-          />
-        </label>
-
-        <label className="field">
-          <span className="field-label">Email</span>
-          <input
-            type="email"
-            value={form.email}
-            onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
-            placeholder="writer@example.com"
-          />
-        </label>
-
-        <label className="field">
-          <span className="field-label">Password</span>
-          <input
-            type="password"
-            value={form.password}
-            onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
-            placeholder="At least 6 characters"
-          />
-        </label>
-
-        {message ? <p className="success-text">{message}</p> : null}
-        {error ? <p className="error-text">{error}</p> : null}
-
-        <button className="action-button primary" type="submit" disabled={authLoading}>
-          {authLoading ? "Creating..." : "Create account"}
-        </button>
-      </form>
-
-      <p className="helper-text">
-        Already registered? <Link to="/login">Go to login</Link>.
-      </p>
-    </article>
+    </div>
   );
 }

@@ -38,41 +38,41 @@ export default function FollowListPage({ type }) {
   }
 
   return (
-    <article className="panel route-detail-card">
-      <div className="panel-header">
-        <h3>{type === "followers" ? "Followers" : "Following"}</h3>
-        <p>{meta.totalElements} people for @{username}.</p>
+    <div className="page-wrapper-narrow">
+      <div style={{ paddingTop: "2rem" }}>
+        <h1 className="page-title">{type === "followers" ? "Followers" : "Following"}</h1>
+        <p className="text-muted" style={{ marginBottom: "1.5rem" }}>{meta.totalElements} people for @{username}.</p>
       </div>
 
       {loading ? (
         <Loader label="Loading people..." />
       ) : error ? (
-        <p className="error-text">{error}</p>
+        <p className="form-error">{error}</p>
       ) : people.length === 0 ? (
-        <p className="empty-state">No people found.</p>
+        <p className="empty">No people found.</p>
       ) : (
-        <div className="stack-list">
+        <div>
           {people.map((person) => (
-            <Link className="list-row list-row-wide post-card-link" key={person.id || person.username} to={`/u/${person.username}`}>
-              <div className="profile-header compact-profile-header">
-                <div className="avatar-circle small">{initialsForProfile(person)}</div>
+            <Link className="dashboard-post-row" key={person.id || person.username} to={`/u/${person.username}`}>
+              <div className="dashboard-post-body" style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <div className="avatar avatar-sm">{initialsForProfile(person)}</div>
                 <div>
-                  <strong>{person.displayName || person.username}</strong>
-                  <p>@{person.username}</p>
+                  <div className="dashboard-post-title">{person.displayName || person.username}</div>
+                  <div className="dashboard-post-meta">@{person.username}</div>
                 </div>
               </div>
-              <span>{person.followerCount || 0} followers</span>
+              <span className="text-muted">{person.followerCount || 0} followers</span>
             </Link>
           ))}
         </div>
       )}
 
-      <div className="button-row">
-        <button className="action-button ghost" type="button" disabled={page === 0 || loading} onClick={() => setPage((value) => Math.max(value - 1, 0))}>
+      <div className="pagination">
+        <button className="btn btn-ghost btn-sm" type="button" disabled={page === 0 || loading} onClick={() => setPage((value) => Math.max(value - 1, 0))}>
           Previous
         </button>
         <button
-          className="action-button primary"
+          className="btn btn-primary btn-sm"
           type="button"
           disabled={loading || meta.totalPages === 0 || page >= meta.totalPages - 1}
           onClick={() => setPage((value) => value + 1)}
@@ -80,6 +80,6 @@ export default function FollowListPage({ type }) {
           Next
         </button>
       </div>
-    </article>
+    </div>
   );
 }

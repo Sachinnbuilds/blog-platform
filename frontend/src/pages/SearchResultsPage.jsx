@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Loader from "../components/Loader";
 import PostCard from "../components/PostCard";
@@ -7,6 +7,11 @@ import { extractApiError } from "../lib/http";
 import { initialsForProfile } from "../lib/profile";
 
 const tabs = ["posts", "people", "tags"];
+
+function resultCount(results, tab) {
+  if (tab === "people") return results.users.length;
+  return results[tab]?.length || 0;
+}
 
 export default function SearchResultsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -49,108 +54,61 @@ export default function SearchResultsPage() {
   }
 
   return (
-    <div className="content-grid route-grid route-grid-wide">
-      <article className="panel route-hero-panel">
-        <div className="panel-header">
-          <h3>Search</h3>
-          <p>Find stories, people, and tags across the platform.</p>
-        </div>
+    <div className="page-wrapper">
+      <div className="search-page">
+        <h1 className="page-title">Search</h1>
 
-        <form className="form-stack" onSubmit={submitSearch}>
-          <label className="field">
-            <span className="field-label">Search query</span>
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search stories, writers, tags"
-            />
-          </label>
-          <div className="button-row">
-            <button className="action-button primary" type="submit">
-              Search
-            </button>
-            <Link className="action-button ghost" to="/feed">
-              Browse feed
-            </Link>
-          </div>
+        <form onSubmit={submitSearch} className="search-page-bar">
+          <input className="search-page-input" value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search stories, writers, tags…" autoFocus />
+          <button type="submit" className="btn btn-primary">Search</button>
         </form>
 
-        <div className="button-row">
+        <div className="search-result-tabs feed-tabs">
           {tabs.map((tab) => (
-            <button
-              key={tab}
-              className={`action-button ${activeTab === tab ? "primary" : "ghost"}`}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-            >
+            <button key={tab} className={`feed-tab${activeTab === tab ? " active" : ""}`}
+              onClick={() => setActiveTab(tab)}>
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              <span style={{ marginLeft: "0.35rem", color: "var(--ink-muted)", fontSize: "0.8rem" }}>
+                ({resultCount(results, tab)})
+              </span>
             </button>
           ))}
         </div>
 
-        {error ? <p className="error-text">{error}</p> : null}
-      </article>
+        {error && <p className="form-error">{error}</p>}
 
-      <article className="panel">
-        <div className="panel-header">
-          <h3>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h3>
-          <p>{resultCount(results, activeTab)} results.</p>
-        </div>
-
-        {loading ? <Loader label="Searching..." /> : null}
-
-        {!loading && activeTab === "posts" ? (
-          results.posts.length === 0 ? (
-            <p className="empty-state">No stories found.</p>
-          ) : (
-            <div className="post-grid">
-              {results.posts.map((post) => (
-                <PostCard key={post.id} post={post} compact />
-              ))}
-            </div>
-          )
-        ) : null}
-
-        {!loading && activeTab === "people" ? (
-          results.users.length === 0 ? (
-            <p className="empty-state">No people found.</p>
-          ) : (
-            <div className="stack-list">
-              {results.users.map((person) => (
-                <Link className="list-row list-row-wide post-card-link" key={person.username} to={`/u/${person.username}`}>
-                  <div className="profile-header compact-profile-header">
-                    <div className="avatar-circle small">{initialsForProfile(person)}</div>
-                    <div>
-                      <strong>{person.displayName || person.username}</strong>
-                      <p>@{person.username}</p>
-                    </div>
+        {loading ? <Loader label="Searching…" /> : (
+          <>
+            {activeTab === "posts" && (
+              results.posts.length === 0 ? <p className="empty">No stories found.</p> :
+              results.posts.map((post) => <PostCard key={post.id} post={post} />)
+            )}
+            {activeTab === "people" && (
+              results.users.length === 0 ? <p className="empty">No people found.</p> :
+              results.users.map((person) => (
+                <Link key={person.username} to={`/u/${person.username}`}
+                  style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.9rem 0", borderBottom: "1px solid var(--border)", textDecoration: "none", color: "inherit" }}>
+                  <div className="avatar avatar-sm">{initialsForProfile(person)}</div>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>{person.displayName || person.username}</div>
+                    <div className="text-muted">@{person.username} · {person.followerCount || 0} followers</div>
                   </div>
-                  <span>{person.followerCount || 0} followers</span>
                 </Link>
-              ))}
-            </div>
-          )
-        ) : null}
-
-        {!loading && activeTab === "tags" ? (
-          results.tags.length === 0 ? (
-            <p className="empty-state">No tags found.</p>
-          ) : (
-            <div className="tag-row">
-              {results.tags.map((tag) => (
-                <Link className="mini-tag" key={tag.slug} to={`/tag/${encodeURIComponent(tag.slug)}`}>
-                  {tag.name}
-                </Link>
-              ))}
-            </div>
-          )
-        ) : null}
-      </article>
+              ))
+            )}
+            {activeTab === "tags" && (
+              results.tags.length === 0 ? <p className="empty">No tags found.</p> :
+              <div className="tag-row" style={{ marginTop: "0.5rem" }}>
+                {results.tags.map((tag) => (
+                  <Link key={tag.slug} to={`/tag/${encodeURIComponent(tag.slug)}`} className="tag tag-link">#{tag.name}</Link>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
-}
-
-function resultCount(results, tab) {
-  if (tab === "people") return results.users.length;
-  return results[tab]?.length || 0;
 }

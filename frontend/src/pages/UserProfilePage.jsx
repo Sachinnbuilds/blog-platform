@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Loader from "../components/Loader";
 import PostCard from "../components/PostCard";
@@ -60,90 +60,60 @@ export default function UserProfilePage() {
     }
   }
 
-  if (loading) {
-    return (
-      <article className="panel route-detail-card">
-        <Loader label="Loading profile..." />
-      </article>
-    );
-  }
-
-  if (error || !profile) {
-    return (
-      <article className="panel route-detail-card">
-        <p className="error-text">{error || "Profile not found."}</p>
-      </article>
-    );
-  }
+  if (loading) return <div className="page-wrapper"><Loader label="Loading profile…" /></div>;
+  if (error || !profile) return <div className="page-wrapper"><p className="form-error">{error || "Profile not found."}</p></div>;
 
   const ownProfile = user?.username === profile.username;
 
   return (
-    <div className="content-grid route-grid route-grid-wide">
-      <article className="panel">
-        <div className="profile-header">
-          <div className="avatar-circle">{initialsForProfile(profile)}</div>
+    <div className="page-wrapper">
+      <div className="profile-hero">
+        <div className="profile-hero-top">
+          <div className="avatar avatar-lg">{initialsForProfile(profile)}</div>
           <div>
-            <h3>{profile.displayName || profile.username}</h3>
-            <p className="helper-text">@{profile.username}</p>
+            <h1 className="page-title" style={{ fontSize: "1.5rem" }}>{profile.displayName || profile.username}</h1>
+            <p className="text-muted">@{profile.username}</p>
           </div>
         </div>
 
-        {profile.bio ? <p className="detail-body">{profile.bio}</p> : null}
+        {profile.bio && <p className="profile-bio">{profile.bio}</p>}
 
-        <div className="story-meta">
-          {profile.location ? <span>{profile.location}</span> : null}
-          {profile.website ? (
-            <a href={normalizeWebsite(profile.website)} target="_blank" rel="noreferrer">
-              {profile.website}
-            </a>
-          ) : null}
-          {profile.joinedAt ? <span title={formatAbsoluteDate(profile.joinedAt)}>Joined {profile.joinedAt}</span> : null}
+        <div className="profile-meta-row">
+          {profile.location && <span>{profile.location}</span>}
+          {profile.website && <a href={normalizeWebsite(profile.website)} target="_blank" rel="noreferrer">{profile.website}</a>}
+          {profile.joinedAt && <span>Joined {profile.joinedAt}</span>}
         </div>
 
-        <div className="stats-grid author-stats-grid">
-          <Link className="stat-card post-card-link" to={`/u/${profile.username}/followers`}>
-            <span>Followers</span>
-            <strong>{profile.followerCount}</strong>
+        <div className="profile-stats-row">
+          <Link to={`/u/${profile.username}/followers`} className="profile-stat" style={{ textDecoration: "none" }}>
+            <span className="profile-stat-num">{profile.followerCount}</span>
+            <span className="profile-stat-label">Followers</span>
           </Link>
-          <Link className="stat-card post-card-link" to={`/u/${profile.username}/following`}>
-            <span>Following</span>
-            <strong>{profile.followingCount}</strong>
+          <Link to={`/u/${profile.username}/following`} className="profile-stat" style={{ textDecoration: "none", marginLeft: "1.5rem" }}>
+            <span className="profile-stat-num">{profile.followingCount}</span>
+            <span className="profile-stat-label">Following</span>
           </Link>
         </div>
 
-        <div className="button-row">
+        <div className="btn-row">
           {ownProfile ? (
-            <Link className="action-button primary" to="/settings/profile">
-              Edit profile
-            </Link>
+            <Link to="/settings/profile" className="btn btn-ghost">Edit profile</Link>
           ) : isAuthenticated ? (
-            <button className="action-button primary" type="button" disabled={actionLoading} onClick={toggleFollow}>
+            <button className="btn btn-primary" disabled={actionLoading} onClick={toggleFollow}>
               {isFollowing ? "Unfollow" : "Follow"}
             </button>
           ) : (
-            <Link className="action-button primary" to="/login">
-              Login to follow
-            </Link>
+            <Link to="/login" className="btn btn-primary">Follow</Link>
           )}
         </div>
-      </article>
+      </div>
 
-      <article className="panel">
-        <div className="panel-header">
-          <h3>Published Stories</h3>
-          <p>{posts.length} visible stories.</p>
-        </div>
-        {posts.length === 0 ? (
-          <p className="empty-state">No published stories yet.</p>
-        ) : (
-          <div className="post-grid">
-            {posts.map((post) => (
-              <PostCard key={post.id} post={post} compact />
-            ))}
-          </div>
-        )}
-      </article>
+      <h2 className="section-heading" style={{ fontSize: "1.1rem" }}>Stories</h2>
+      {posts.length === 0 ? (
+        <p className="empty">No published stories yet.</p>
+      ) : (
+        posts.map((post) => <PostCard key={post.id} post={post} />)
+      )}
     </div>
   );
 }

@@ -41,7 +41,7 @@ class FollowServiceV3GuardrailTest {
 
         assertThatThrownBy(() -> followService.follow("writer", "writer"))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessage("Cannot follow yourself");
+                .hasMessage("You cannot follow yourself");
 
         verify(followRepository, never()).save(any(Follow.class));
     }
@@ -56,10 +56,8 @@ class FollowServiceV3GuardrailTest {
 
         followService.follow("reader", "writer");
 
-        assertThat(follower.getFollowingCount()).isEqualTo(3);
-        assertThat(following.getFollowerCount()).isEqualTo(6);
-        verify(userRepository).save(follower);
-        verify(userRepository).save(following);
+        verify(userRepository).incrementFollowingCount(1L);
+        verify(userRepository).incrementFollowerCount(2L);
     }
 
     @Test
@@ -75,11 +73,9 @@ class FollowServiceV3GuardrailTest {
 
         followService.unfollow("reader", "writer");
 
-        assertThat(follower.getFollowingCount()).isEqualTo(2);
-        assertThat(following.getFollowerCount()).isEqualTo(5);
         verify(followRepository).delete(follow);
-        verify(userRepository).save(follower);
-        verify(userRepository).save(following);
+        verify(userRepository).decrementFollowingCount(1L);
+        verify(userRepository).decrementFollowerCount(2L);
     }
 
     private static User user(Long id, String username, int followers, int following) {

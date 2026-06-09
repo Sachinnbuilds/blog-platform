@@ -5,16 +5,23 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.blog.blog_platform.dto.AuthRequest;
 import com.blog.blog_platform.dto.AuthResponse;
 import com.blog.blog_platform.dto.RegisterRequest;
 import com.blog.blog_platform.entity.User;
+import com.blog.blog_platform.exception.BadRequestException;
+import com.blog.blog_platform.exception.ForbiddenException;
+import com.blog.blog_platform.exception.NotFoundException;
 import com.blog.blog_platform.repository.UserRepository;
 import com.blog.blog_platform.security.JwtUtil;
 
 @Service
 public class AuthService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     @Autowired
     private UserRepository userRepository;
@@ -30,10 +37,10 @@ public class AuthService {
 
     public String register(RegisterRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) {
-            throw new RuntimeException("Username already taken");
+            throw new BadRequestException("Username already taken");
         }
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already registered");
+            throw new BadRequestException("Email already registered");
         }
 
         User user = new User();
@@ -42,6 +49,7 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
 
         userRepository.save(user);
+        log.info("New user registered: {}", request.getUsername());
         return "User registered successfully";
     }
 
@@ -52,8 +60,9 @@ public class AuthService {
                         request.getPassword()
                 )
         );
+        log.info("User logged in: {}", request.getUsername());
         User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
         String token = jwtUtil.generateToken(request.getUsername(), user.getTokenVersion());
         return new AuthResponse(token, user.isAdmin());
     }

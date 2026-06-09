@@ -26,6 +26,9 @@ http.interceptors.response.use(
       localStorage.removeItem(USER_STORAGE_KEY);
       window.dispatchEvent(new Event("auth:expired"));
     }
+    if (status === 403 && !error.response.data) {
+      error.response.data = { error: "You do not have permission to do this." };
+    }
     return Promise.reject(error);
   }
 );

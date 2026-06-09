@@ -11,6 +11,7 @@ export const api = {
   updateProfile: async (payload) => (await http.put("/api/users/me/profile", payload)).data,
   saveInterests: async (interests) => (await http.post("/api/users/me/interests", { interests })).data,
   getOnboardingState: async () => (await http.get("/api/users/me/onboarding-state")).data,
+  changePassword: async (payload) => (await http.put("/api/users/me/password", payload)).data,
   followUser: async (username) => (await http.post(`/api/users/${encodeURIComponent(username)}/follow`)).data,
   unfollowUser: async (username) => (await http.delete(`/api/users/${encodeURIComponent(username)}/follow`)).data,
   isFollowing: async (username) => (await http.get(`/api/users/${encodeURIComponent(username)}/is-following`)).data,
@@ -29,17 +30,17 @@ export const api = {
     (await http.get(`/api/posts/tag/${encodeURIComponent(slug)}`, { params })).data,
   getPostBySlug: async (slug) => (await http.get(`/api/posts/slug/${encodeURIComponent(slug)}`)).data,
   getEditablePostBySlug: async (slug) => (await http.get(`/api/posts/editor/${encodeURIComponent(slug)}`)).data,
-  createPost: async (payload) => (await http.post("/api/posts", null, { params: payload })).data,
+  createPost: async (payload) => (await http.post("/api/posts", payload)).data,
   updatePost: async (postId, payload) =>
-    (await http.put(`/api/posts/${postId}`, null, { params: payload })).data,
+    (await http.put(`/api/posts/${postId}`, payload)).data,
   deletePost: async (postId) => (await http.delete(`/api/posts/${postId}`)).data,
   likePost: async (postId) => (await http.post(`/api/posts/${postId}/like`)).data,
   getComments: async (postId, params = {}) =>
     (await http.get(`/api/comments/${postId}`, { params })).data,
   addComment: async (postId, content) =>
-    (await http.post(`/api/comments/${postId}`, null, { params: { content } })).data,
+    (await http.post(`/api/comments/${postId}`, { content })).data,
   editComment: async (commentId, content) =>
-    (await http.put(`/api/comments/${commentId}`, null, { params: { content } })).data,
+    (await http.put(`/api/comments/${commentId}`, { content })).data,
   deleteComment: async (commentId) => (await http.delete(`/api/comments/${commentId}`)).data,
   getTags: async () => (await http.get("/api/tags")).data,
   getTrendingTags: async () => (await http.get("/api/tags/trending")).data,
@@ -49,11 +50,11 @@ export const api = {
   getPlatformStats: async () => (await http.get("/api/stats")).data,
   getAuthorStats: async () => (await http.get("/api/stats/me")).data,
   getAdminStats: async () => (await http.get("/api/admin/stats")).data,
+  getAdminActivity: async () => (await http.get("/api/admin/activity")).data,
   getAdminUsers: async () => (await http.get("/api/admin/users")).data,
   makeAdmin: async (userId) => (await http.put(`/api/admin/users/${userId}/make-admin`)).data,
   deleteAdminUser: async (userId) => (await http.delete(`/api/admin/users/${userId}`)).data,
   deleteAdminPost: async (postId) => (await http.delete(`/api/admin/posts/${postId}`)).data,
-  cleanupAdminData: async () => (await http.post("/api/admin/cleanup")).data,
   uploadImage: async (file) => {
     const formData = new FormData();
     formData.append("file", file);

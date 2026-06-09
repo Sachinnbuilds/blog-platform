@@ -5,11 +5,12 @@ import java.util.List;
 import java.util.Map;
 import java.security.Principal;
 
+import com.blog.blog_platform.dto.AdminActionLogDTO;
+import com.blog.blog_platform.dto.AdminUserDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import com.blog.blog_platform.entity.User;
 import com.blog.blog_platform.service.AdminService;
 
 @RestController
@@ -28,8 +29,13 @@ public class AdminController {
     }
 
     @GetMapping("/users")
-    public ResponseEntity<List<User>> getAllUsers() {
+    public ResponseEntity<List<AdminUserDTO>> getAllUsers() {
         return ResponseEntity.ok(adminService.getAllUsers());
+    }
+
+    @GetMapping("/activity")
+    public ResponseEntity<List<AdminActionLogDTO>> getActivity() {
+        return ResponseEntity.ok(adminService.getRecentActivity());
     }
 
     @DeleteMapping("/users/{id}")
@@ -39,14 +45,14 @@ public class AdminController {
     }
 
     @PutMapping("/users/{id}/make-admin")
-    public ResponseEntity<String> makeAdmin(@PathVariable Long id) {
-        adminService.makeAdmin(id);
+    public ResponseEntity<String> makeAdmin(@PathVariable Long id, Principal principal) {
+        adminService.makeAdmin(id, principal.getName());
         return ResponseEntity.ok("User is now an admin");
     }
 
     @DeleteMapping("/posts/{id}")
-    public ResponseEntity<String> deletePost(@PathVariable Long id) {
-        adminService.deletePost(id);
+    public ResponseEntity<String> deletePost(@PathVariable Long id, Principal principal) {
+        adminService.deletePost(id, principal.getName());
         return ResponseEntity.ok("Post deleted successfully");
     }
 

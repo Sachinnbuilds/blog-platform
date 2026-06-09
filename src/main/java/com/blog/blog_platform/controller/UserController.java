@@ -1,5 +1,6 @@
 package com.blog.blog_platform.controller;
 
+import com.blog.blog_platform.dto.ChangePasswordRequest;
 import com.blog.blog_platform.dto.InterestsRequest;
 import com.blog.blog_platform.dto.OnboardingStateDTO;
 import com.blog.blog_platform.dto.PostSummaryDTO;
@@ -56,6 +57,14 @@ public class UserController {
             Principal principal) {
         User updated = userService.updateMyProfile(principal.getName(), request);
         return ResponseEntity.ok(userService.toProfileDTO(updated));
+    }
+
+    @PutMapping("/me/password")
+    public ResponseEntity<String> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request,
+            Principal principal) {
+        userService.changePassword(principal.getName(), request);
+        return ResponseEntity.ok("Password changed successfully. Please sign in again.");
     }
 
     @PostMapping("/me/interests")

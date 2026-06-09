@@ -3,6 +3,8 @@ package com.blog.blog_platform.dto;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.blog.blog_platform.entity.PostStatus;
+
 public class PostSummaryDTO {
     private Long id;
     private String title;
@@ -14,6 +16,7 @@ public class PostSummaryDTO {
     private int likes;
     private int viewCount;
     private int commentCount;
+    private PostStatus status;
     private String authorUsername;
     private String authorDisplayName;
     private List<TagDTO> tags;
@@ -47,6 +50,9 @@ public class PostSummaryDTO {
 
     public int getCommentCount() { return commentCount; }
     public void setCommentCount(int commentCount) { this.commentCount = commentCount; }
+
+    public PostStatus getStatus() { return status; }
+    public void setStatus(PostStatus status) { this.status = status; }
 
     public String getAuthorUsername() { return authorUsername; }
     public void setAuthorUsername(String authorUsername) { this.authorUsername = authorUsername; }

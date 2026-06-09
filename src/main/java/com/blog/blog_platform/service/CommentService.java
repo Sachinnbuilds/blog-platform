@@ -6,11 +6,16 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.blog.blog_platform.entity.Comment;
 import com.blog.blog_platform.entity.Post;
 import com.blog.blog_platform.entity.PostStatus;
 import com.blog.blog_platform.entity.User;
+import com.blog.blog_platform.exception.BadRequestException;
+import com.blog.blog_platform.exception.ForbiddenException;
+import com.blog.blog_platform.exception.NotFoundException;
 import com.blog.blog_platform.repository.CommentRepository;
 import com.blog.blog_platform.repository.PostRepository;
 import com.blog.blog_platform.repository.UserRepository;
@@ -18,6 +23,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CommentService {
+
+    private static final Logger log = LoggerFactory.getLogger(CommentService.class);
 
     @Autowired
     private CommentRepository commentRepository;
@@ -31,19 +38,19 @@ public class CommentService {
     @Transactional
     public Comment addComment(Long postId, String content, String username) {
         if (content == null || content.trim().isEmpty()) {
-            throw new RuntimeException("Comment cannot be empty");
+            throw new BadRequestException("Comment cannot be empty");
         }
         if (content.length() > 500) {
-            throw new RuntimeException("Comment cannot exceed 500 characters");
+            throw new BadRequestException("Comment cannot exceed 500 characters");
         }
 
         Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new RuntimeException("Post not found"));
+                .orElseThrow(() -> new NotFoundException("Post not found"));
         if (post.getStatus() != PostStatus.PUBLISHED) {
-            throw new RuntimeException("Post not found");
+            throw new NotFoundException("Post not found");
         }
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
 
         Comment comment = new Comment();
         comment.setContent(content.trim());
@@ -51,16 +58,15 @@ public class CommentService {
         comment.setUser(user);
 
         Comment saved = commentRepository.save(comment);
-        post.setCommentCount(Math.max(0, post.getCommentCount()) + 1);
-        postRepository.save(post);
+        postRepository.incrementCommentCount(postId);
         return saved;
     }
 
     public Page<Comment> getCommentsByPost(Long postId, int page, int size) {
         Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new RuntimeException("Post not found"));
+                .orElseThrow(() -> new NotFoundException("Post not found"));
         if (post.getStatus() != PostStatus.PUBLISHED) {
-            throw new RuntimeException("Post not found");
+            throw new NotFoundException("Post not found");
         }
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return commentRepository.findByPostIdOrderByCreatedAtDesc(postId, pageable);
@@ -68,17 +74,17 @@ public class CommentService {
 
     public Comment editComment(Long id, String content, String username) {
         if (content == null || content.trim().isEmpty()) {
-            throw new RuntimeException("Comment cannot be empty");
+            throw new BadRequestException("Comment cannot be empty");
         }
         if (content.length() > 500) {
-            throw new RuntimeException("Comment cannot exceed 500 characters");
+            throw new BadRequestException("Comment cannot exceed 500 characters");
         }
 
         Comment comment = commentRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Comment not found"));
+                .orElseThrow(() -> new NotFoundException("Comment not found"));
 
         if (!comment.getUser().getUsername().equals(username)) {
-            throw new RuntimeException("Unauthorized");
+            throw new ForbiddenException("You are not allowed to do this");
         }
 
         comment.setContent(content.trim());
@@ -88,20 +94,20 @@ public class CommentService {
     @Transactional
     public void deleteComment(Long id, String username) {
         Comment comment = commentRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Comment not found"));
+                .orElseThrow(() -> new NotFoundException("Comment not found"));
 
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
 
         if (!comment.getUser().getUsername().equals(username) && !user.isAdmin()) {
-            throw new RuntimeException("Unauthorized");
+            throw new ForbiddenException("You are not allowed to do this");
         }
 
-        Post post = comment.getPost();
+        Long postId = comment.getPost() != null ? comment.getPost().getId() : null;
+        log.info("Comment deleted: id={} by={}", id, username);
         commentRepository.delete(comment);
-        if (post != null) {
-            post.setCommentCount(Math.max(0, post.getCommentCount() - 1));
-            postRepository.save(post);
+        if (postId != null) {
+            postRepository.decrementCommentCount(postId);
         }
     }
 

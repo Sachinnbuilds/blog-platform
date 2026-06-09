@@ -19,6 +19,7 @@ public class PostDetailDTO {
     private int viewCount;
     private int commentCount;
     private PostStatus status;
+    private boolean likedByCurrentUser;
     private String authorUsername;
     private String authorDisplayName;
     private List<TagDTO> tags;
@@ -61,6 +62,9 @@ public class PostDetailDTO {
 
     public PostStatus getStatus() { return status; }
     public void setStatus(PostStatus status) { this.status = status; }
+
+    public boolean isLikedByCurrentUser() { return likedByCurrentUser; }
+    public void setLikedByCurrentUser(boolean likedByCurrentUser) { this.likedByCurrentUser = likedByCurrentUser; }
 
     public String getAuthorUsername() { return authorUsername; }
     public void setAuthorUsername(String authorUsername) { this.authorUsername = authorUsername; }

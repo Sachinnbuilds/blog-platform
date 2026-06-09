@@ -13,6 +13,7 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("stats");
   const [stats, setStats] = useState(null);
   const [platformStats, setPlatformStats] = useState(null);
+  const [activity, setActivity] = useState([]);
   const [users, setUsers] = useState([]);
   const [posts, setPosts] = useState([]);
   const [postsMeta, setPostsMeta] = useState({ page: 0, size: 8, totalPages: 0, totalElements: 0 });
@@ -44,6 +45,7 @@ export default function AdminPage() {
       ]);
       setStats(adminData);
       setPlatformStats(platformData);
+      setActivity(await api.getAdminActivity());
     } catch (err) {
       setError(extractApiError(err, "Failed to load admin stats."));
     } finally {
@@ -135,141 +137,102 @@ export default function AdminPage() {
     }
   }
 
-  async function handleCleanup() {
-    if (!window.confirm("Run cleanup for test data now?")) {
-      return;
-    }
-
-    setActionLoading((current) => ({ ...current, cleanup: true }));
-    setFeedback("");
-    try {
-      const result = await api.cleanupAdminData();
-      setFeedback(`${result.message} Deleted count: ${result.deletedCount}`);
-      await loadStats();
-      if (activeTab === "posts") {
-        await loadPosts(postsMeta.page);
-      }
-    } catch (err) {
-      setError(extractApiError(err, "Failed to clean test data."));
-    } finally {
-      setActionLoading((current) => ({ ...current, cleanup: false }));
-    }
-  }
-
   return (
-    <div className="content-grid route-grid route-grid-wide">
-      <article className="panel">
-        <div className="panel-header">
-          <h3>Admin Panel</h3>
-          <p>Protected workspace for platform health, people, and story moderation.</p>
-        </div>
-
-        <div className="stats-grid author-stats-grid">
-          <div className="stat-card">
-            <span>Current admin</span>
-            <strong>{user?.username || "Unknown"}</strong>
-          </div>
-          <div className="stat-card">
-            <span>Total users</span>
-            <strong>{stats?.totalUsers ?? "-"}</strong>
-          </div>
-          <div className="stat-card">
-            <span>Total posts</span>
-            <strong>{stats?.totalPosts ?? "-"}</strong>
-          </div>
-          <div className="stat-card">
-            <span>Total tags</span>
-            <strong>{platformStats?.totalTags ?? "-"}</strong>
-          </div>
-          <div className="stat-card">
-            <span>Moderation</span>
-            <strong>Active</strong>
+    <div className="page-wrapper">
+      <div className="dashboard-layout">
+        <div className="dashboard-header">
+          <div>
+            <h1 className="page-title">Admin</h1>
+            <p className="text-muted">Platform health, people, and story moderation.</p>
           </div>
         </div>
 
-        <div className="button-row">
+        <div className="stats-row">
+          <div className="stat-cell"><span className="stat-cell-num">{user?.username || "-"}</span><span className="stat-cell-label">Current admin</span></div>
+          <div className="stat-cell"><span className="stat-cell-num">{stats?.totalUsers ?? "-"}</span><span className="stat-cell-label">Users</span></div>
+          <div className="stat-cell"><span className="stat-cell-num">{stats?.totalPosts ?? "-"}</span><span className="stat-cell-label">Posts</span></div>
+          <div className="stat-cell"><span className="stat-cell-num">{platformStats?.totalTags ?? "-"}</span><span className="stat-cell-label">Tags</span></div>
+        </div>
+
+        <div className="dashboard-tabs">
           {adminTabs.map((tab) => (
             <button
               key={tab}
-              className={`tab-chip nav-chip ${activeTab === tab ? "active" : ""}`}
+              className={`dashboard-tab${activeTab === tab ? " active" : ""}`}
               onClick={() => setActiveTab(tab)}
               type="button"
             >
-              {tab}
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
-          <button
-            className="action-button ghost"
-            onClick={handleCleanup}
-            disabled={actionLoading.cleanup}
-            type="button"
-          >
-            {actionLoading.cleanup ? "Cleaning..." : "Cleanup test data"}
-          </button>
         </div>
 
-        {feedback ? <p className="success-text">{feedback}</p> : null}
-        {error ? <p className="error-text">{error}</p> : null}
-      </article>
+        {feedback ? <p className="form-success">{feedback}</p> : null}
+        {error ? <p className="form-error">{error}</p> : null}
 
-      <article className="panel">
         {activeTab === "stats" ? (
           <>
-            <div className="panel-header">
-              <h3>Platform Stats</h3>
-              <p>Publishing, identity, and discovery totals.</p>
-            </div>
+            <h2 className="section-heading" style={{ fontSize: "1.1rem" }}>Platform stats</h2>
 
             {loading.stats ? (
               <Loader label="Loading admin stats..." />
             ) : (
-              <div className="stack-list compact-stack">
-                <div className="list-row">
-                  <strong>Total users</strong>
-                  <span>{stats?.totalUsers ?? 0}</span>
+              <>
+                <div className="stats-row">
+                  <div className="stat-cell"><span className="stat-cell-num">{stats?.totalUsers ?? 0}</span><span className="stat-cell-label">Total users</span></div>
+                  <div className="stat-cell"><span className="stat-cell-num">{platformStats?.totalPosts ?? stats?.totalPosts ?? 0}</span><span className="stat-cell-label">Published posts</span></div>
+                  <div className="stat-cell"><span className="stat-cell-num">{platformStats?.totalTags ?? 0}</span><span className="stat-cell-label">Total tags</span></div>
                 </div>
-                <div className="list-row">
-                  <strong>Published posts</strong>
-                  <span>{platformStats?.totalPosts ?? stats?.totalPosts ?? 0}</span>
-                </div>
-                <div className="list-row">
-                  <strong>Total tags</strong>
-                  <span>{platformStats?.totalTags ?? 0}</span>
-                </div>
-              </div>
+                <h2 className="section-heading" style={{ fontSize: "1.1rem" }}>Recent admin activity</h2>
+                {activity.length === 0 ? (
+                  <p className="empty">No admin actions recorded yet.</p>
+                ) : (
+                  activity.map((item) => (
+                    <div key={item.id} className="dashboard-post-row">
+                      <div className="dashboard-post-body">
+                        <div className="dashboard-post-title">{item.details || item.action}</div>
+                        <div className="dashboard-post-meta">
+                          <span>{item.actorUsername}</span>
+                          <span>{item.action}</span>
+                          <span>{item.targetType} {item.targetId || ""}</span>
+                          <span title={formatAbsoluteDate(item.createdAt)}>{formatTimeAgo(item.createdAt)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </>
             )}
           </>
         ) : null}
 
         {activeTab === "users" ? (
           <>
-            <div className="panel-header">
-              <h3>Users</h3>
-              <p>Promote users and remove accounts when needed.</p>
-            </div>
+            <h2 className="section-heading" style={{ fontSize: "1.1rem" }}>Users</h2>
 
             {loading.users ? (
               <Loader label="Loading users..." />
             ) : users.length === 0 ? (
-              <p className="empty-state">No users found.</p>
+              <p className="empty">No users found.</p>
             ) : (
-              <div className="stack-list compact-stack">
+              <div>
                 {users.map((account) => {
                   const isCurrentUser = account.username === user?.username;
+                  const isAccountAdmin = account.admin || account.isAdmin;
                   return (
-                    <div key={account.id} className="list-row list-row-wide">
-                      <div>
-                        <strong>{account.username}</strong>
-                        <p>{account.email}</p>
+                    <div key={account.id} className="dashboard-post-row">
+                      <div className="dashboard-post-body">
+                        <div className="dashboard-post-title">{account.username}</div>
+                        <div className="dashboard-post-meta">
+                          <span>{account.email}</span>
+                          <span>{isAccountAdmin ? "Admin" : "User"}</span>
+                          <span>ID {account.id}</span>
+                        </div>
                       </div>
-                      <div className="row-meta">
-                        <span>{account.admin || account.isAdmin ? "Admin" : "User"}</span>
-                        <span>ID {account.id}</span>
-                      </div>
-                      <div className="admin-action-stack">
-                        {!account.admin && !account.isAdmin ? (
+                      <div className="dashboard-post-actions">
+                        {!isAccountAdmin ? (
                           <button
-                            className="action-button ghost"
+                            className="btn btn-ghost btn-sm"
                             onClick={() => handleMakeAdmin(account.id)}
                             disabled={actionLoading[`make-admin-${account.id}`]}
                             type="button"
@@ -278,7 +241,7 @@ export default function AdminPage() {
                           </button>
                         ) : null}
                         <button
-                          className="action-button ghost"
+                          className="btn btn-danger btn-sm"
                           onClick={() => handleDeleteUser(account.id, account.username)}
                           disabled={isCurrentUser || actionLoading[`delete-user-${account.id}`]}
                           type="button"
@@ -300,26 +263,21 @@ export default function AdminPage() {
 
         {activeTab === "posts" ? (
           <>
-            <div className="panel-header">
-              <h3>Post Moderation</h3>
-              <p>
-                Public posts list for admin review. {postsMeta.totalElements} posts total.
-              </p>
-            </div>
+            <h2 className="section-heading" style={{ fontSize: "1.1rem" }}>Post moderation</h2>
+            <p className="text-muted" style={{ marginBottom: "1rem" }}>{postsMeta.totalElements} posts total.</p>
 
             {loading.posts ? (
               <Loader label="Loading posts..." />
             ) : posts.length === 0 ? (
-              <p className="empty-state">No posts found.</p>
+              <p className="empty">No posts found.</p>
             ) : (
-              <div className="stack-list">
+              <div>
                 {posts.map((post) => (
-                  <article key={post.id} className="story-card dashboard-story-card">
-                    <div className="story-card-copy">
-                      <span className="mini-tag">{post.tags?.[0]?.name || "Story"}</span>
-                      <h4>{post.title}</h4>
-                      <p>{post.summary || "No summary provided."}</p>
-                      <div className="story-meta">
+                  <div key={post.id} className="dashboard-post-row">
+                    <div className="dashboard-post-body">
+                      <div className="dashboard-post-title">{post.title}</div>
+                      <div className="dashboard-post-meta">
+                        <span>{post.tags?.[0]?.name || "Story"}</span>
                         <span>{post.authorDisplayName || post.authorUsername || "Unknown author"}</span>
                         <span title={formatAbsoluteDate(post.createdAt)}>{formatTimeAgo(post.createdAt)}</span>
                         <span>{post.likes || 0} likes</span>
@@ -327,12 +285,10 @@ export default function AdminPage() {
                       </div>
                     </div>
 
-                    <div className="story-actions">
-                      <Link className="action-button ghost detail-back-link" to={`/posts/${post.slug}`}>
-                        View
-                      </Link>
+                    <div className="dashboard-post-actions">
+                      <Link className="btn btn-ghost btn-sm" to={`/posts/${post.slug}`}>View</Link>
                       <button
-                        className="action-button ghost"
+                        className="btn btn-danger btn-sm"
                         onClick={() => handleDeletePost(post.id)}
                         disabled={actionLoading[`delete-post-${post.id}`]}
                         type="button"
@@ -340,14 +296,14 @@ export default function AdminPage() {
                         {actionLoading[`delete-post-${post.id}`] ? "Deleting..." : "Delete"}
                       </button>
                     </div>
-                  </article>
+                  </div>
                 ))}
               </div>
             )}
 
-            <div className="button-row">
+            <div className="pagination">
               <button
-                className="action-button ghost"
+                className="btn btn-ghost btn-sm"
                 onClick={() => loadPosts(Math.max(postsMeta.page - 1, 0))}
                 disabled={loading.posts || postsMeta.page === 0}
                 type="button"
@@ -355,7 +311,7 @@ export default function AdminPage() {
                 Previous
               </button>
               <button
-                className="action-button primary"
+                className="btn btn-primary btn-sm"
                 onClick={() => loadPosts(postsMeta.page + 1)}
                 disabled={loading.posts || postsMeta.totalPages === 0 || postsMeta.page >= postsMeta.totalPages - 1}
                 type="button"
@@ -365,7 +321,7 @@ export default function AdminPage() {
             </div>
           </>
         ) : null}
-      </article>
+      </div>
     </div>
   );
 }

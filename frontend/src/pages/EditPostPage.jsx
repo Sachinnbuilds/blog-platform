@@ -78,7 +78,7 @@ export default function EditPostPage() {
         title: form.title,
         summary: form.summary || undefined,
         content: form.content,
-        tags: tags.join(","),
+        tags,
         status,
         thumbnail: form.thumbnail || undefined
       });
@@ -107,124 +107,85 @@ export default function EditPostPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <article className="panel route-detail-card">
-        <Loader label="Loading editor..." />
-      </article>
-    );
-  }
+  if (loading) return <div className="page-wrapper-narrow"><Loader label="Loading editor…" /></div>;
 
-  if (!post) {
-    return (
-      <article className="panel route-detail-card">
-        <p className="error-text">{error || "Post not found."}</p>
-      </article>
-    );
-  }
-
-  if (!canEdit) {
-    return (
-      <article className="panel route-detail-card">
-        <div className="panel-header">
-          <h3>Edit Post</h3>
-          <p>You do not have permission to edit this post.</p>
-        </div>
-        <Link className="action-button ghost detail-back-link" to={`/posts/${post.slug}`}>
-          Back to post
-        </Link>
-      </article>
-    );
-  }
+  if (error && !post) return (
+    <div className="page-wrapper-narrow" style={{ paddingTop: "2rem" }}>
+      <p className="form-error">{error}</p>
+    </div>
+  );
 
   return (
-    <article className="panel editor-panel">
-      <div className="panel-header">
-        <h3>Edit Post</h3>
-        <p>Only the author or an admin can update this post.</p>
-      </div>
-
-      <form className="form-stack" onSubmit={handleSubmit}>
-        <label className="field">
-          <span className="field-label">Title</span>
-          <input
-            value={form.title}
-            onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
-            maxLength={180}
-          />
-        </label>
-
-        <label className="field">
-          <span className="field-label">Summary</span>
-          <textarea
-            rows={3}
-            value={form.summary}
-            onChange={(event) => setForm((current) => ({ ...current, summary: event.target.value }))}
-            maxLength={500}
-          />
-        </label>
-
-        <label className="field">
-          <span className="field-label">Tags</span>
-          <input
-            value={form.tags}
-            onChange={(event) => setForm((current) => ({ ...current, tags: event.target.value }))}
-            placeholder="react, writing, backend"
-          />
-          <span className="helper-text">Use commas. Up to 5 tags are sent.</span>
-        </label>
-
-        <label className="field">
-          <span className="field-label">Status</span>
-          <select
-            value={form.status}
-            onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}
-          >
-            <option value="PUBLISHED">Published</option>
-            <option value="DRAFT">Draft</option>
-          </select>
-        </label>
-
-        <label className="field">
-          <span className="field-label">Content</span>
-          <textarea
-            rows={12}
-            value={form.content}
-            onChange={(event) => setForm((current) => ({ ...current, content: event.target.value }))}
-          />
-        </label>
-
-        <ImageUpload
-          value={form.thumbnail}
-          onChange={(thumbnail) => setForm((current) => ({ ...current, thumbnail }))}
-        />
-
-        {form.thumbnail ? (
-          <label className="field">
-            <span className="field-label">Thumbnail URL</span>
-            <input value={form.thumbnail} readOnly />
-          </label>
-        ) : null}
-
-        {error ? <p className="error-text">{error}</p> : null}
-
-        <div className="button-row">
-          <button className="action-button ghost" type="button" onClick={handleDelete} disabled={deleting}>
-            {deleting ? "Deleting..." : "Delete post"}
-          </button>
-          <button
-            className="action-button ghost"
-            type="button"
-            disabled={saving}
-            onClick={() => savePost("DRAFT")}
-          >
-            {saving ? "Saving..." : "Save draft"}
-          </button>
-          <button className="action-button primary" type="submit" disabled={saving}>
-            {saving ? "Saving..." : "Save changes"}
-          </button>
+    <div className="page-wrapper-narrow">
+      <div className="editor-page">
+        <div className="editor-header">
+          <h1 style={{ fontFamily: "var(--font-display)", fontSize: "1.5rem", fontWeight: 700, marginBottom: "0.25rem" }}>Edit story</h1>
+          <p className="text-muted">
+            {post?.status === "DRAFT" ? "Draft" : "Published"}
+            {post?.status !== "DRAFT" && (
+              <>
+                {" · "}
+                <Link to={`/posts/${post?.slug}`} className="link-underline">View live</Link>
+              </>
+            )}
+          </p>
         </div>
-      </form>
-    </article>
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-field">
+            <label className="form-label">Title</label>
+            <input className="form-input" value={form.title} maxLength={180}
+              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
+          </div>
+          <div className="form-field">
+            <label className="form-label">Summary</label>
+            <textarea className="form-textarea" rows={2} value={form.summary} maxLength={500}
+              onChange={(e) => setForm((f) => ({ ...f, summary: e.target.value }))} />
+          </div>
+          <div className="form-field">
+            <label className="form-label">Tags</label>
+            <input className="form-input" value={form.tags}
+              onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))} />
+            <p className="form-hint">Comma-separated. Up to 5 tags.</p>
+          </div>
+          <div className="form-field">
+            <label className="form-label">Status</label>
+            <select className="form-select" value={form.status}
+              onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
+              <option value="PUBLISHED">Published</option>
+              <option value="DRAFT">Draft</option>
+            </select>
+          </div>
+          <div className="form-field">
+            <label className="form-label">Content</label>
+            <textarea className="form-textarea" rows={18} value={form.content}
+              onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
+              style={{ fontFamily: "var(--font-body)", fontSize: "1rem", lineHeight: "1.8" }} />
+          </div>
+
+          <ImageUpload value={form.thumbnail} onChange={(thumbnail) => setForm((f) => ({ ...f, thumbnail }))} />
+
+          {error && <p className="form-error" style={{ marginTop: "0.5rem" }}>{error}</p>}
+
+          <div className="editor-toolbar">
+            <button type="submit" className="btn btn-ghost" disabled={saving}>
+              {saving ? "Saving…" : "Save changes"}
+            </button>
+            {form.status === "DRAFT" && (
+              <button type="button" className="btn btn-primary" disabled={saving}
+                onClick={() => savePost("PUBLISHED")}>
+                {saving ? "Publishing…" : "Publish"}
+              </button>
+            )}
+            {canEdit && (
+              <button type="button" className="btn btn-danger" disabled={deleting}
+                onClick={() => { if (window.confirm("Delete this post? This cannot be undone.")) handleDelete(); }}>
+                {deleting ? "Deleting…" : "Delete story"}
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }

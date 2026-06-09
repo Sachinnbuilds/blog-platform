@@ -8,12 +8,17 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.blog.blog_platform.entity.Post;
 import com.blog.blog_platform.entity.PostLike;
 import com.blog.blog_platform.entity.PostStatus;
 import com.blog.blog_platform.entity.Tag;
 import com.blog.blog_platform.entity.User;
+import com.blog.blog_platform.exception.BadRequestException;
+import com.blog.blog_platform.exception.ForbiddenException;
+import com.blog.blog_platform.exception.NotFoundException;
 import com.blog.blog_platform.dto.PostDetailDTO;
 import com.blog.blog_platform.dto.PostSummaryDTO;
 import com.blog.blog_platform.dto.TagDTO;
@@ -34,6 +39,8 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class PostService {
 
+    private static final Logger log = LoggerFactory.getLogger(PostService.class);
+
     @Autowired
     private PostRepository postRepository;
 
@@ -49,7 +56,7 @@ public class PostService {
     @Transactional
     public Post createPost(String title, String content, String username, List<String> tagNames, String thumbnail, String summary, PostStatus status) {
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
 
         Post post = new Post();
         post.setTitle(title);
@@ -67,7 +74,9 @@ public class PostService {
             adjustTagCounts(Set.of(), post.getTags());
         }
 
-        return postRepository.save(post);
+        Post saved = postRepository.save(post);
+        log.info("Post created: id={} slug={} author={} status={}", saved.getId(), saved.getSlug(), username, saved.getStatus());
+        return saved;
     }
 
     public Page<Post> getAllPosts(int page, int size) {
@@ -81,40 +90,47 @@ public class PostService {
 
     public Post getPostById(Long id) {
         return postRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Post not found"));
+                .orElseThrow(() -> new NotFoundException("Post not found"));
     }
 
     public Post getPublishedPostById(Long id) {
         Post post = getPostById(id);
         if (post.getStatus() != PostStatus.PUBLISHED) {
-            throw new RuntimeException("Post not found");
+            throw new NotFoundException("Post not found");
         }
         return post;
     }
 
+    @Transactional
     public Post getPostBySlug(String slug) {
         Post post = postRepository.findBySlug(slug)
-                .orElseThrow(() -> new RuntimeException("Post not found"));
+                .orElseThrow(() -> new NotFoundException("Post not found"));
         if (post.getStatus() == PostStatus.DRAFT) {
-            throw new RuntimeException("Post not found");
+            throw new NotFoundException("Post not found");
         }
-        post.setViewCount(post.getViewCount() + 1);
-        postRepository.save(post);
-        return post;
+        postRepository.incrementViewCount(slug);
+        return postRepository.findBySlug(slug)
+                .orElseThrow(() -> new NotFoundException("Post not found"));
     }
 
+    @Transactional
     public PostDetailDTO getPostDetailBySlug(String slug) {
-        return toPostDetailDTO(getPostBySlug(slug));
+        return getPostDetailBySlug(slug, null);
+    }
+
+    @Transactional
+    public PostDetailDTO getPostDetailBySlug(String slug, String viewerUsername) {
+        return toPostDetailDTO(getPostBySlug(slug), viewerUsername);
     }
 
     public PostDetailDTO getEditablePostDetailBySlug(String slug, String username) {
         Post post = postRepository.findBySlug(slug)
-                .orElseThrow(() -> new RuntimeException("Post not found"));
+                .orElseThrow(() -> new NotFoundException("Post not found"));
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
 
         if (!post.getAuthor().getUsername().equals(username) && !user.isAdmin()) {
-            throw new RuntimeException("Unauthorized");
+            throw new ForbiddenException("You are not allowed to do this");
         }
 
         return toPostDetailDTO(post);
@@ -191,7 +207,7 @@ public class PostService {
 
     public Page<Post> getPostsByAuthor(String username, int page, int size) {
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return postRepository.findByAuthorIdAndStatus(user.getId(), PostStatus.PUBLISHED, pageable);
     }
@@ -216,7 +232,7 @@ public class PostService {
 
     public Page<Post> getFeed(String username, String type, int page, int size) {
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
         String feedType = type == null ? "for_you" : type.trim().toLowerCase();
 
         if ("latest".equals(feedType)) {
@@ -240,7 +256,7 @@ public class PostService {
 
     public Page<Post> getDraftsByAuthor(String username, int page, int size) {
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
         Pageable pageable = PageRequest.of(page, size, Sort.by("updatedAt").descending());
         return postRepository.findByAuthorIdAndStatus(user.getId(), PostStatus.DRAFT, pageable);
     }
@@ -256,10 +272,10 @@ public class PostService {
         PostStatus previousStatus = post.getStatus();
 
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
 
         if (!post.getAuthor().getUsername().equals(username) && !user.isAdmin()) {
-            throw new RuntimeException("Unauthorized");
+            throw new ForbiddenException("You are not allowed to do this");
         }
 
         // Only regenerate slug if title changed to avoid breaking existing links
@@ -288,15 +304,16 @@ public class PostService {
         Post post = getPostById(id);
 
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
 
         if (!post.getAuthor().getUsername().equals(username) && !user.isAdmin()) {
-            throw new RuntimeException("Unauthorized");
+            throw new ForbiddenException("You are not allowed to do this");
         }
 
         if (post.getStatus() == PostStatus.PUBLISHED) {
             adjustTagCounts(post.getTags(), Set.of());
         }
+        log.info("Post deleted: id={} by={}", id, username);
         postRepository.delete(post);
     }
 
@@ -307,7 +324,7 @@ public class PostService {
     public Post likePost(Long id, String username) {
         Post post = getPublishedPostById(id);
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
 
         if (postLikeRepository.existsByUserIdAndPostId(user.getId(), id)) {
             postLikeRepository.deleteByUserIdAndPostId(user.getId(), id);
@@ -324,7 +341,7 @@ public class PostService {
 
     @Transactional
     public PostDetailDTO likePostDetail(Long id, String username) {
-        return toPostDetailDTO(likePost(id, username));
+        return toPostDetailDTO(likePost(id, username), username);
     }
 
     public PostSummaryDTO toPostSummaryDTO(Post post) {
@@ -339,6 +356,7 @@ public class PostService {
         dto.setLikes(post.getLikes());
         dto.setViewCount(post.getViewCount());
         dto.setCommentCount(post.getCommentCount());
+        dto.setStatus(post.getStatus());
 
         User author = post.getAuthor();
         if (author != null) {
@@ -373,6 +391,17 @@ public class PostService {
         }
 
         dto.setTags(post.getTags().stream().map(this::toTagDTO).toList());
+        return dto;
+    }
+
+    public PostDetailDTO toPostDetailDTO(Post post, String viewerUsername) {
+        PostDetailDTO dto = toPostDetailDTO(post);
+        if (viewerUsername == null || viewerUsername.isBlank()) {
+            return dto;
+        }
+        userRepository.findByUsername(viewerUsername).ifPresent(viewer ->
+                dto.setLikedByCurrentUser(postLikeRepository.existsByUserIdAndPostId(viewer.getId(), post.getId()))
+        );
         return dto;
     }
 

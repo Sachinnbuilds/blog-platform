@@ -60,8 +60,7 @@ class CommentServiceV3GuardrailTest {
         Comment saved = commentService.addComment(10L, " Looks good ", "reader");
 
         assertThat(saved.getContent()).isEqualTo("Looks good");
-        assertThat(published.getCommentCount()).isEqualTo(3);
-        verify(postRepository).save(published);
+        verify(postRepository).incrementCommentCount(10L);
     }
 
     @Test
@@ -77,9 +76,8 @@ class CommentServiceV3GuardrailTest {
 
         commentService.deleteComment(50L, "reader");
 
-        assertThat(published.getCommentCount()).isEqualTo(1);
         verify(commentRepository).delete(comment);
-        verify(postRepository).save(published);
+        verify(postRepository).decrementCommentCount(10L);
     }
 
     private static User user(String username, boolean admin) {

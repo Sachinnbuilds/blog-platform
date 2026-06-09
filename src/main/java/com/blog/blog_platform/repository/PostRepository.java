@@ -7,7 +7,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.blog.blog_platform.entity.Post;
 import com.blog.blog_platform.entity.PostStatus;
@@ -15,6 +17,21 @@ import com.blog.blog_platform.entity.PostStatus;
 public interface PostRepository extends JpaRepository<Post, Long>, JpaSpecificationExecutor<Post> {
     Optional<Post> findBySlug(String slug);
     boolean existsBySlug(String slug);
+    @Modifying
+    @Transactional
+    @Query("UPDATE Post p SET p.viewCount = p.viewCount + 1 WHERE p.slug = :slug")
+    void incrementViewCount(String slug);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE Post p SET p.commentCount = p.commentCount + 1 WHERE p.id = :postId")
+    void incrementCommentCount(Long postId);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE Post p SET p.commentCount = CASE WHEN p.commentCount > 0 THEN p.commentCount - 1 ELSE 0 END WHERE p.id = :postId")
+    void decrementCommentCount(Long postId);
+
     Page<Post> findByTitleContainingIgnoreCaseOrContentContainingIgnoreCase(
             String title, String content, Pageable pageable);
     Page<Post> findByStatusAndTitleContainingIgnoreCaseOrStatusAndContentContainingIgnoreCase(

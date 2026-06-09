@@ -2,6 +2,9 @@ package com.blog.blog_platform.controller;
 
 import java.security.Principal;
 
+import com.blog.blog_platform.dto.CommentRequest;
+import com.blog.blog_platform.exception.BadRequestException;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.blog.blog_platform.entity.Comment;
@@ -30,9 +34,10 @@ public class CommentController {
 
     @PostMapping("/{postId}")
     public ResponseEntity<Comment> addComment(@PathVariable Long postId,
-                                              @RequestParam @NotBlank @Size(max = 500) String content,
+                                              @Valid @RequestBody(required = false) CommentRequest body,
+                                              @RequestParam(required = false) @Size(max = 500) String content,
                                               Principal principal) {
-        return ResponseEntity.ok(commentService.addComment(postId, content, principal.getName()));
+        return ResponseEntity.ok(commentService.addComment(postId, resolveContent(body, content), principal.getName()));
     }
 
     @GetMapping("/{postId}")
@@ -45,9 +50,10 @@ public class CommentController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Comment> editComment(@PathVariable Long id,
-                                               @RequestParam @NotBlank @Size(max = 500) String content,
+                                               @Valid @RequestBody(required = false) CommentRequest body,
+                                               @RequestParam(required = false) @Size(max = 500) String content,
                                                Principal principal) {
-        return ResponseEntity.ok(commentService.editComment(id, content, principal.getName()));
+        return ResponseEntity.ok(commentService.editComment(id, resolveContent(body, content), principal.getName()));
     }
 
     @DeleteMapping("/{id}")
@@ -55,5 +61,13 @@ public class CommentController {
                                                 Principal principal) {
         commentService.deleteComment(id, principal.getName());
         return ResponseEntity.ok("Comment deleted");
+    }
+
+    private String resolveContent(CommentRequest body, String content) {
+        String value = body == null ? content : body.getContent();
+        if (value == null || value.isBlank()) {
+            throw new BadRequestException("Comment cannot be empty");
+        }
+        return value;
     }
 }
